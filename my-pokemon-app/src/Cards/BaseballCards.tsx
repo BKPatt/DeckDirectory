@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import EbayItem from '../EbayItem';
+import EbayItem from '../Types/EbayItem';
 
 const BaseballCards = () => {
     const [cards, setCards] = useState<EbayItem[]>([]);
@@ -22,7 +22,6 @@ const BaseballCards = () => {
                 url += `&REST-PAYLOAD`;
                 const searchTerm = search.trim() === '' ? 'baseball card' : search;
                 url += `&keywords=${encodeURIComponent(searchTerm)}`;
-                // url += `&paginationInput.entriesPerPage=50`;
 
                 const response = await axios.get(url);
                 const items = response.data.findItemsByKeywordsResponse[0].searchResult[0].item || [];

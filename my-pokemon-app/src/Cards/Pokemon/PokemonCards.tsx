@@ -2,70 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-
-type Attack = {
-    name: string;
-    cost: string[];
-    convertedEnergyCost: number;
-    damage: string;
-    text: string;
-};
-
-type Weakness = {
-    type: string;
-    value: string;
-};
-
-type CardSet = {
-    id: string;
-    name: string;
-    series: string;
-    printedTotal: number;
-    total: number;
-    legalities: Record<string, string>;
-    ptcgoCode: string;
-    releaseDate: string;
-    updatedAt: string;
-    images: {
-        symbol: string;
-        logo: string;
-    };
-};
-
-type CardData = {
-    id: string;
-    name: string;
-    supertype: string;
-    subtypes: string[];
-    level: string;
-    hp: string;
-    types: string[];
-    attacks: Attack[];
-    weaknesses: Weakness[];
-    retreatCost: string[];
-    convertedRetreatCost: number;
-    set: CardSet;
-    number: string;
-    artist: string;
-    rarity: string;
-    flavorText: string;
-    nationalPokedexNumbers: number[];
-    legalities: Record<string, string>;
-    images: {
-        small: string;
-        large: string;
-    };
-    tcgplayer?: {
-        url: string;
-        updatedAt: string;
-        prices: Record<string, any>;
-    };
-    cardmarket?: {
-        url: string;
-        updatedAt: string;
-        prices: Record<string, any>;
-    };
-};
+import CardData from './CardData';
 
 const PokemonCards = () => {
     const [cards, setCards] = useState<CardData[]>([]);

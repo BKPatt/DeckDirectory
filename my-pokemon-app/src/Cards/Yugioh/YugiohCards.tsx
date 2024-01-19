@@ -2,26 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import YugiohCardData from './YugiohCardData';
 
-type LorcanaCardData = {
-    Artist: string;
-    Set_Name: string;
-    Set_Num: number;
-    Color: string;
-    Image: string;
-    Cost: number;
-    Inkable: boolean;
-    Name: string;
-    Type: string;
-    Rarity: string;
-    Flavor_Text: string;
-    Card_Num: number;
-    Body_Text: string;
-    Set_ID: string;
-};
-
-const LorcanaCards = () => {
-    const [cards, setCards] = useState<LorcanaCardData[]>([]);
+const YugiohCards = () => {
+    const [cards, setCards] = useState<YugiohCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [cardsPerPage] = useState(20);
@@ -30,27 +14,15 @@ const LorcanaCards = () => {
 
     const fetchData = async () => {
         try {
-            let url = 'https://api.lorcana-api.com/cards/fetch';
+            let url = 'https://db.ygoprodeck.com/api/v7/cardinfo.php';
             if (search) {
-                url += `?search=${encodeURIComponent(search)}`;
+                url += `?name=${encodeURIComponent(search)}`;
             }
 
             const response = await axios.get(url);
-            setCards(response.data.map((card: any) => ({
-                Artist: card.Artist,
-                Set_Name: card.Set_Name,
-                Set_Num: card.Set_Num,
-                Color: card.Color,
-                Image: card.Image,
-                Cost: card.Cost,
-                Inkable: card.Inkable,
-                Name: card.Name,
-                Type: card.Type,
-                Rarity: card.Rarity,
-                Flavor_Text: card.Flavor_Text,
-                Card_Num: card.Card_Num,
-                Body_Text: card.Body_Text,
-                Set_ID: card.Set_ID,
+            setCards(response.data.data.map((card: YugiohCardData) => ({
+                name: card.name,
+                card_images: card.card_images
             })));
         } catch (error) {
             console.error('Error fetching data: ', error);
@@ -72,7 +44,7 @@ const LorcanaCards = () => {
     };
 
     const handleCardClick = (cardName: string) => {
-        navigate(`/cards/lorcana/${encodeURIComponent(cardName)}`);
+        navigate(`/cards/yugioh/${encodeURIComponent(cardName)}`);
     };
 
     const indexOfLastCard = currentPage * cardsPerPage;
@@ -83,7 +55,7 @@ const LorcanaCards = () => {
         <Box sx={{ p: 2 }}>
             <TextField
                 fullWidth
-                label="Search Lorcana Cards"
+                label="Search Yu-Gi-Oh! Cards"
                 variant="outlined"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -101,17 +73,16 @@ const LorcanaCards = () => {
                 {currentCards.map((card, index) => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                            <Card onClick={() => handleCardClick(card.Name)}>
+                            <Card onClick={() => handleCardClick(card.name)}>
                                 <CardMedia
                                     component="img"
                                     height="auto"
-                                    image={card.Image}
-                                    alt={card.Name}
+                                    image={card.card_images[0]?.image_url_small}
+                                    alt={card.name}
                                 />
                                 <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
-                                    {card.Name}
+                                    {card.name}
                                 </Typography>
-                                {/* Optionally display more card details here */}
                             </Card>
                         </Grid>
                     );
@@ -127,4 +98,4 @@ const LorcanaCards = () => {
     );
 };
 
-export default LorcanaCards;
+export default YugiohCards;
