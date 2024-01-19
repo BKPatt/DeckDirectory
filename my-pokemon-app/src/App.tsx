@@ -4,16 +4,15 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import theme from './theme';
 import Sidebar from './Sidebar';
 import HomePage from './HomePage';
-import TopBar from './TopBar';
-import CardTypesPage from './CardTypes';
-import PokemonCards from './PokemonCards';
-import MTGCards from './MTGCards';
-import BaseballCards from './BaseballCards';
-import FootballCards from './FootballCards';
-import YugiohCards from './YugiohCards';
-import LorcanaCards from './LorcanaCards';
-import BasketballCards from './BasketballCards';
-import HockeyCards from './HockeyCards';
+import CardTypesPage from './Types/CardTypes';
+import PokemonCards from './Cards/PokemonCards';
+import MTGCards from './Cards/MTGCards';
+import BaseballCards from './Cards/BaseballCards';
+import FootballCards from './Cards/FootballCards';
+import YugiohCards from './Cards/YugiohCards';
+import LorcanaCards from './Cards/LorcanaCards';
+import BasketballCards from './Cards/BasketballCards';
+import HockeyCards from './Cards/HockeyCards';
 import Lists from './Lists';
 
 const App: React.FC = () => {
@@ -21,7 +20,6 @@ const App: React.FC = () => {
         <ThemeProvider theme={theme}>
             <Router>
                 <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    {/* <TopBar /> */}
                     <Box sx={{ display: 'flex', flexGrow: 1, bgcolor: '#333333', color: 'text.primary' }}>
                         <Sidebar />
                         <Box component="main" sx={{ flexGrow: 1, p: 3 }}>

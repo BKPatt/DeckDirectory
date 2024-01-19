@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import EbayItem from './EbayItem';
+import EbayItem from '../EbayItem';
 
-const BaseballCards = () => {
+const BasketballCards = () => {
     const [cards, setCards] = useState<EbayItem[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -20,7 +20,7 @@ const BaseballCards = () => {
                 url += `&SECURITY-APPNAME=${process.env.REACT_APP_EBAY_API_KEY}`;
                 url += `&RESPONSE-DATA-FORMAT=JSON`;
                 url += `&REST-PAYLOAD`;
-                const searchTerm = search.trim() === '' ? 'baseball card' : search;
+                const searchTerm = search.trim() === '' ? 'basketball card' : search;
                 url += `&keywords=${encodeURIComponent(searchTerm)}`;
                 // url += `&paginationInput.entriesPerPage=50`;
 
@@ -63,7 +63,7 @@ const BaseballCards = () => {
         setCurrentPage(value);
     };
     const handleCardClick = (cardTitle: string) => {
-        navigate(`/cards/baseball/${cardTitle}`);
+        navigate(`/cards/basketball/${cardTitle}`);
     };
 
     const indexOfLastCard = currentPage * cardsPerPage;
@@ -74,7 +74,7 @@ const BaseballCards = () => {
         <Box sx={{ p: 2 }}>
             <TextField
                 fullWidth
-                label="Search Baseball Cards"
+                label="Search Basketball Cards"
                 variant="outlined"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -107,4 +107,4 @@ const BaseballCards = () => {
     );
 };
 
-export default BaseballCards;
+export default BasketballCards;

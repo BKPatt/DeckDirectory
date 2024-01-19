@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import EbayItem from './EbayItem';
+import EbayItem from '../EbayItem';
 
 const HockeyCards = () => {
     const [cards, setCards] = useState<EbayItem[]>([]);

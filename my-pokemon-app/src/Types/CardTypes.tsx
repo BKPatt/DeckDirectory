@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Paper, Grid, Card, CardActionArea, CardMedia, CardContent, Typography } from '@mui/material';
-import pokemon from './assets/pokemon.png'
-import mtg from './assets/mtg.png'
-import baseball from './assets/baseball.jpg'
-import football from './assets/football.jpg'
-import yugioh from './assets/yugioh.jpg'
-import basketball from './assets/basketball.jpg'
-import hockey from './assets/hockey.jpg'
-import lorcana from './assets/lorcana.jpg'
+import pokemon from '../assets/pokemon.png'
+import mtg from '../assets/mtg.png'
+import baseball from '../assets/baseball.jpg'
+import football from '../assets/football.jpg'
+import yugioh from '../assets/yugioh.jpg'
+import basketball from '../assets/basketball.jpg'
+import hockey from '../assets/hockey.jpg'
+import lorcana from '../assets/lorcana.jpg'
 
 const CardTypesPage = () => {
     const cardTypes = [

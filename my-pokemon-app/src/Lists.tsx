@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import { TextField, Button, Select, MenuItem, Typography, Box, Grid, SelectChangeEvent, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
-import ListDialog from './ListDialog'
-import ListItemComponent from './ListItemComponent';
-import ListsState from './ListsState';
-import CardList from './CardList';
-import CardType from './CardType';
+import ListDialog from './Types/ListDialog'
+import ListItemComponent from './Types/ListItemComponent';
+import ListsState from './Types/ListsState';
+import CardList from './Types/CardList';
+import CardType from './Types/CardType';
+import formatDate from './helpers/formatDate';
 
 class Lists extends Component<{}, ListsState> {
     constructor(props: {}) {
@@ -153,7 +154,7 @@ class Lists extends Component<{}, ListsState> {
                     <Typography variant="subtitle1">Created On</Typography>
                 </Grid>
                 <Grid item xs={1}>
-                    <Typography variant="subtitle1"># of Cards</Typography>
+                    <Typography marginLeft={'30px'} variant="subtitle1"># of Cards</Typography>
                 </Grid>
                 <Grid item xs={2}>
                     <Typography variant="subtitle1">Full List Market Value</Typography>
@@ -176,7 +177,7 @@ class Lists extends Component<{}, ListsState> {
                             sx={{
                                 py: 1,
                                 '&:hover': {
-                                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                                    backgroundColor: 'rgba(0, 0, 0, 0.4)'
                                 }
                             }}
                         >
@@ -187,10 +188,10 @@ class Lists extends Component<{}, ListsState> {
                                 <Typography>{list.created_by}</Typography>
                             </Grid>
                             <Grid item xs={1}>
-                                <Typography>{list.created_on}</Typography>
+                                <Typography>{formatDate(list.created_on)}</Typography>
                             </Grid>
                             <Grid item xs={1}>
-                                <Typography>{ }</Typography>
+                                <Typography marginLeft={'30px'}>{200}</Typography>
                             </Grid>
                             <Grid item xs={2}>
                                 <Typography>${list.market_value}</Typography>

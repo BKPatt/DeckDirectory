@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import Default from './assets/Default.png'
+import Default from '../assets/Default.png'
 
 type CardFace = {
     name: string;
