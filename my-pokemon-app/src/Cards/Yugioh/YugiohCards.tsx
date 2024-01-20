@@ -11,36 +11,40 @@ const YugiohCards = () => {
     const [cardsPerPage] = useState(20);
     const navigate = useNavigate();
     const [filter, setFilter] = useState('');
+    const [totalPages, setTotalPages] = useState(0);
 
-    const fetchData = async () => {
+    const fetchData = async (page?: number) => {
         try {
-            let url = 'https://db.ygoprodeck.com/api/v7/cardinfo.php';
-            if (search) {
-                url += `?name=${encodeURIComponent(search)}`;
+            if (!page) {
+                page = 1
             }
-
-            const response = await axios.get(url);
-            setCards(response.data.data.map((card: YugiohCardData) => ({
-                name: card.name,
-                card_images: card.card_images
-            })));
+            const params = {
+                params: {
+                    name: search,
+                    page: page,
+                    page_size: cardsPerPage
+                }
+            };
+            const response = await axios.get('http://localhost:8000/api/fetch-yugioh-cards/', params);
+            setCards(response.data.data);
+            setTotalPages(response.data.total_pages);
+            setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
         }
     };
-    fetchData();
 
     useEffect(() => {
         fetchData();
     }, []);
 
-
-    const handleSearchClick = () => {
-        fetchData();
+    const handlePageChange = (value: number) => {
+        fetchData(value);
     };
 
-    const paginate = (value: number) => {
-        setCurrentPage(value);
+    const handleSearchClick = () => {
+        fetchData(1);
+        setCurrentPage(1);
     };
 
     const handleCardClick = (cardName: string) => {
@@ -70,7 +74,7 @@ const YugiohCards = () => {
             />
             <Button variant="contained" onClick={handleSearchClick}>Search</Button>
             <Grid container spacing={2}>
-                {currentCards.map((card, index) => {
+                {cards.map((card, index) => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                             <Card onClick={() => handleCardClick(card.name)}>
@@ -89,9 +93,9 @@ const YugiohCards = () => {
                 })}
             </Grid>
             <Pagination
-                count={Math.ceil(cards.length / cardsPerPage)}
+                count={totalPages}
                 page={currentPage}
-                onChange={(_, value) => paginate(value)}
+                onChange={(_, value) => handlePageChange(value)}
                 sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}
             />
         </Box>

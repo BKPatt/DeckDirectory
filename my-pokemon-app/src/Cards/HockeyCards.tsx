@@ -15,16 +15,8 @@ const HockeyCards = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                let url = `https://svcs.sandbox.ebay.com/services/search/FindingService/v1`;
-                url += `?OPERATION-NAME=findItemsByKeywords`;
-                url += `&SERVICE-VERSION=1.0.0`;
-                url += `&SECURITY-APPNAME=${process.env.REACT_APP_EBAY_API_KEY}`;
-                url += `&RESPONSE-DATA-FORMAT=JSON`;
-                url += `&REST-PAYLOAD`;
                 const searchTerm = search.trim() === '' ? 'hockey card' : search;
-                url += `&keywords=${encodeURIComponent(searchTerm)}`;
-
-                const response = await axios.get(url);
+                const response = await axios.get(`http://localhost:8000/api/fetch-ebay-data/`, { params: { searchTerm } });
                 const items = response.data.findItemsByKeywordsResponse[0].searchResult[0].item || [];
                 const formattedCards = formatEbay(items);
                 setCards(formattedCards);
