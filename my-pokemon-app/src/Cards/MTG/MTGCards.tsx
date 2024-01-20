@@ -12,59 +12,36 @@ const MTGCards = () => {
     const [cardsPerPage] = useState(20);
     const navigate = useNavigate();
     const [filter, setFilter] = useState('');
+    const [totalPages, setTotalPages] = useState(0);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = async (page = currentPage) => {
         try {
-            let url = '';
-            let response;
-
-            if (search) {
-                url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(search)}&page=1`;
-                response = await axios.get(url);
-                setCards(response.data.data.map((card: MTGCardData) => ({
-                    name: card.name,
-                    small: card.image_uris?.small
-                })));
-            } else {
-                url = `https://api.scryfall.com/cards/search?q=*&page=1&order=name`;
-                response = await axios.get(url);
-                const allCards = response.data.data;
-
-                if (allCards.length < 45) {
-                    let additionalCards: MTGCardData[] = [];
-                    for (let i = 2; i <= 3; i++) {
-                        const nextPageResponse = await axios.get(`https://api.scryfall.com/cards/search?q=*&page=${i}&order=name`);
-                        additionalCards = additionalCards.concat(nextPageResponse.data.data);
-                    }
-                    setCards(allCards.concat(additionalCards).slice(0, 45));
-                } else {
-                    setCards(allCards.slice(0, 45));
-                }
-            }
+            let url = `http://localhost:8000/api/mtg-cards/?search=${encodeURIComponent(search)}&page=${page}`;
+            const response = await axios.get(url);
+            setCards(response.data.data);
+            setTotalPages(response.data.total_pages);
         } catch (error) {
             console.error('Error fetching data: ', error);
         }
     };
 
+    useEffect(() => {
+        fetchData();
+    }, []);
+
     const handleSearchClick = () => {
         fetchData();
+        setCurrentPage(1);
     };
 
     const paginate = (value: number) => {
         setCurrentPage(value);
+        fetchData(value);
     };
 
     const handleCardClick = (cardName: string) => {
         navigate(`/cards/mtg/${encodeURIComponent(cardName)}`);
     };
-
-    const indexOfLastCard = currentPage * cardsPerPage;
-    const indexOfFirstCard = indexOfLastCard - cardsPerPage;
-    const currentCards = cards.slice(indexOfFirstCard, indexOfLastCard);
 
     return (
         <Box sx={{ p: 2 }}>
@@ -85,7 +62,7 @@ const MTGCards = () => {
             />
             <Button variant="contained" onClick={handleSearchClick}>Search</Button>
             <Grid container spacing={2}>
-                {currentCards.map((card, index) => {
+                {cards.map((card, index) => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                             <Card onClick={() => handleCardClick(card.name)}>
@@ -104,7 +81,7 @@ const MTGCards = () => {
                 })}
             </Grid>
             <Pagination
-                count={Math.ceil(cards.length / cardsPerPage)}
+                count={totalPages}
                 page={currentPage}
                 onChange={(_, value) => paginate(value)}
                 sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}

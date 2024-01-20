@@ -139,3 +139,62 @@ class LorcanaCardData(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+
+####################################################
+# MTG Tables
+####################################################
+class MTGRelatedCard(models.Model):
+    id = models.CharField(max_length=100, primary_key=True)
+    component = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
+    type_line = models.CharField(max_length=200)
+    uri = models.URLField()
+
+    def __str__(self):
+        return self.name
+
+class MTGCardsData(models.Model):
+    id = models.CharField(max_length=100, primary_key=True)
+    oracle_id = models.UUIDField()
+    name = models.CharField(max_length=200)
+    lang = models.CharField(max_length=2)
+    released_at = models.DateField()
+    uri = models.URLField()
+    layout = models.CharField(max_length=100)
+    image_uris = models.JSONField(blank=True, null=True)
+    cmc = models.DecimalField(max_digits=10, decimal_places=2)
+    type_line = models.CharField(max_length=200)
+    color_identity = models.JSONField()
+    keywords = models.JSONField()
+    legalities = models.JSONField()
+    games = models.JSONField()
+    set = models.CharField(max_length=50)
+    set_name = models.CharField(max_length=200)
+    set_type = models.CharField(max_length=100)
+    rarity = models.CharField(max_length=50)
+    artist = models.CharField(max_length=200)
+    prices = models.JSONField()
+    related_uris = models.JSONField()
+    all_parts = models.ManyToManyField(MTGRelatedCard, blank=True)
+
+    def __str__(self):
+        return self.name
+    
+class MTGCardFace(models.Model):
+    card = models.ForeignKey(MTGCardsData, on_delete=models.CASCADE, related_name='card_faces')
+    id = models.CharField(max_length=100, primary_key=True)
+    oracle_id = models.UUIDField(null=True, blank=True)
+    name = models.CharField(max_length=200)
+    mana_cost = models.CharField(max_length=100)
+    type_line = models.CharField(max_length=200)
+    oracle_text = models.TextField()
+    colors = models.JSONField()
+    power = models.CharField(max_length=10)
+    toughness = models.CharField(max_length=10)
+    artist = models.CharField(max_length=200)
+    image_uris = models.JSONField()
+
+    def __str__(self):
+        return self.name

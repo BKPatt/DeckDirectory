@@ -57,7 +57,6 @@ const LorcanaCards = () => {
         fetchData(value);
     };
 
-
     const handleCardClick = (cardName: string) => {
         navigate(`/cards/lorcana/${encodeURIComponent(cardName)}`);
     };
