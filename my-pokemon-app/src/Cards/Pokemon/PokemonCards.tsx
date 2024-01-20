@@ -13,22 +13,19 @@ const PokemonCards = () => {
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
 
-    const fetchData = async () => {
+    const fetchData = async (page = 1) => {
         try {
-            const params = new URLSearchParams();
-
-            if (search) {
-                params.append('search', search);
-            }
-            if (filter) {
-                params.append('filter', filter);
-            }
-            params.append('page', currentPage.toString());
-
-            const response = await axios.get('http://localhost:8000/api/pokemon-cards/', { params });
-
+            const params = {
+                params: {
+                    search: search,
+                    page: page,
+                    page_size: cardsPerPage
+                }
+            };
+            const response = await axios.get('http://localhost:8000/api/pokemon-cards/', params);
             setCards(response.data.data);
             setTotalPages(response.data.total_pages);
+            setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
         }
@@ -40,12 +37,11 @@ const PokemonCards = () => {
 
     const handleSearchClick = () => {
         setCurrentPage(1);
-        fetchData();
+        fetchData(1);
     };
 
     const paginate = (value: number) => {
-        setCurrentPage(value);
-        fetchData();
+        fetchData(value);
     };
 
     const handleCardClick = (cardName: string) => {

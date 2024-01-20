@@ -85,9 +85,9 @@ def pokemon_cards_api(request):
         search_term = request.GET.get('search', '')
 
         if search_term:
-            cards_query = PokemonCardData.objects.filter(name__icontains=search_term)
+            cards_query = PokemonCardData.objects.filter(name__icontains=search_term).order_by('id')
         else:
-            cards_query = PokemonCardData.objects.all()
+            cards_query = PokemonCardData.objects.all().order_by('id')
 
         paginator = Paginator(cards_query, page_size)
         try:
