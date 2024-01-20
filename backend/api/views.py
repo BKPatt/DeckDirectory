@@ -2,7 +2,7 @@ from pathlib import Path
 from django.http import JsonResponse
 import requests
 from rest_framework import viewsets
-from .models import CardList, YugiohCard, PokemonCardData
+from .models import CardList, LorcanaCardData, YugiohCard, PokemonCardData
 from .serializers import CardListSerializer
 from decouple import Config, RepositoryEnv
 import logging
@@ -133,6 +133,52 @@ def pokemon_cards_api(request):
                 } if card.set else None,
             }
             serialized_cards.append(card_dict)
+
+        return JsonResponse({
+            'data': serialized_cards,
+            'total_pages': paginator.num_pages
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+def fetch_lorcana_cards(request):
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        search_term = request.GET.get('search', '')
+
+        if search_term:
+            cards_query = LorcanaCardData.objects.filter(name__icontains=search_term).order_by('name')
+        else:
+            cards_query = LorcanaCardData.objects.all().order_by('name')
+
+        paginator = Paginator(cards_query, page_size)
+        try:
+            current_page = paginator.page(page)
+        except EmptyPage:
+            return JsonResponse({'error': 'Page not found'}, status=404)
+
+        serialized_cards = [
+            {
+                'id': card.id,
+                'name': card.name,
+                'artist': card.artist,
+                'set_name': card.set_name,
+                'set_num': card.set_num,
+                'color': card.color,
+                'image': card.image,
+                'cost': card.cost,
+                'inkable': card.inkable,
+                'type': card.type,
+                'rarity': card.rarity,
+                'flavor_text': card.flavor_text,
+                'card_num': card.card_num,
+                'body_text': card.body_text,
+                'set_id': card.set_id,
+            }
+            for card in current_page
+        ]
 
         return JsonResponse({
             'data': serialized_cards,

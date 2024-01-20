@@ -4,6 +4,7 @@ from .views import CardListViewSet
 from .views import fetch_ebay_data
 from .views import fetch_yugioh_cards
 from .views import pokemon_cards_api
+from .views import fetch_lorcana_cards
 
 router = DefaultRouter()
 router.register(r'cardlists', CardListViewSet)
@@ -13,4 +14,5 @@ urlpatterns = [
     path('fetch-ebay-data/', fetch_ebay_data, name='fetch_ebay_data'),
     path('fetch-yugioh-cards/', fetch_yugioh_cards, name='fetch_yugioh_cards'),
     path('pokemon-cards/', pokemon_cards_api, name='pokemon-cards-api'),
+    path('lorcana-cards/', fetch_lorcana_cards, name='fetch_lorcana_cards'),
 ]

@@ -115,3 +115,27 @@ class PokemonCardData(models.Model):
 
     def __str__(self):
         return self.name
+
+
+
+####################################################
+# Lorcana Tables
+####################################################
+class LorcanaCardData(models.Model):
+    artist = models.CharField(max_length=200)
+    set_name = models.CharField(max_length=200)
+    set_num = models.PositiveIntegerField()
+    color = models.CharField(max_length=100)
+    image = models.URLField()
+    cost = models.PositiveIntegerField()
+    inkable = models.BooleanField()
+    name = models.CharField(max_length=200)
+    type = models.CharField(max_length=100)
+    rarity = models.CharField(max_length=100)
+    flavor_text = models.TextField(blank=True)
+    card_num = models.PositiveIntegerField()
+    body_text = models.TextField(blank=True)
+    set_id = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.name
