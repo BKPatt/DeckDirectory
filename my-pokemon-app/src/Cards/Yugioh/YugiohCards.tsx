@@ -13,11 +13,8 @@ const YugiohCards = () => {
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
 
-    const fetchData = async (page?: number) => {
+    const fetchData = async (page = 1) => {
         try {
-            if (!page) {
-                page = 1
-            }
             const params = {
                 params: {
                     name: search,
@@ -50,10 +47,6 @@ const YugiohCards = () => {
     const handleCardClick = (cardName: string) => {
         navigate(`/cards/yugioh/${encodeURIComponent(cardName)}`);
     };
-
-    const indexOfLastCard = currentPage * cardsPerPage;
-    const indexOfFirstCard = indexOfLastCard - cardsPerPage;
-    const currentCards = cards.slice(indexOfFirstCard, indexOfLastCard);
 
     return (
         <Box sx={{ p: 2 }}>

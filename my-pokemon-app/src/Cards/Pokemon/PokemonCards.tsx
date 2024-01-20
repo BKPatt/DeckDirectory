@@ -11,51 +11,46 @@ const PokemonCards = () => {
     const [cardsPerPage] = useState(20);
     const navigate = useNavigate();
     const [filter, setFilter] = useState('');
-
-    useEffect(() => {
-        fetchData();
-    }, []);
+    const [totalPages, setTotalPages] = useState(0);
 
     const fetchData = async () => {
         try {
-            const url = 'https://api.pokemontcg.io/v2/cards';
             const params = new URLSearchParams();
 
             if (search) {
-                params.append('q', `name:${search}`);
+                params.append('search', search);
             }
             if (filter) {
-                params.append('filterParam', filter);
+                params.append('filter', filter);
             }
+            params.append('page', currentPage.toString());
 
-            const response = await axios.get(url, {
-                headers: {
-                    'X-Api-Key': process.env.REACT_APP_POKEMON_TCG_API_KEY
-                },
-                params: params,
-            });
+            const response = await axios.get('http://localhost:8000/api/pokemon-cards/', { params });
 
             setCards(response.data.data);
+            setTotalPages(response.data.total_pages);
         } catch (error) {
             console.error('Error fetching data: ', error);
         }
     };
 
+    useEffect(() => {
+        fetchData();
+    }, []);
+
     const handleSearchClick = () => {
+        setCurrentPage(1);
         fetchData();
     };
 
     const paginate = (value: number) => {
         setCurrentPage(value);
+        fetchData();
     };
 
     const handleCardClick = (cardName: string) => {
         navigate(`/cards/pokemon/${cardName}`);
     };
-
-    const indexOfLastCard = currentPage * cardsPerPage;
-    const indexOfFirstCard = indexOfLastCard - cardsPerPage;
-    const currentCards = cards.slice(indexOfFirstCard, indexOfLastCard);
 
     return (
         <Box sx={{ p: 2 }}>
@@ -76,7 +71,7 @@ const PokemonCards = () => {
             />
             <Button variant="contained" onClick={handleSearchClick}>Search</Button>
             <Grid container spacing={2}>
-                {currentCards.map((card, index) => (
+                {cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                         <Card onClick={() => handleCardClick(card.name)}>
                             <CardMedia
@@ -93,7 +88,7 @@ const PokemonCards = () => {
                 ))}
             </Grid>
             <Pagination
-                count={Math.ceil(cards.length / cardsPerPage)}
+                count={totalPages}
                 page={currentPage}
                 onChange={(_, value) => paginate(value)}
                 sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}
