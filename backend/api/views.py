@@ -2,12 +2,14 @@ from pathlib import Path
 from django.http import JsonResponse
 import requests
 from rest_framework import viewsets
-from .models import MTGCardFace, CardList, LorcanaCardData, MTGCardsData, MTGRelatedCard, YugiohCard, PokemonCardData
-from .serializers import CardListSerializer
+from .models import MTGCardFace, CardList, LorcanaCardData, MTGCardsData, MTGRelatedCard, YugiohCard, PokemonCardData, ListCard
+from .serializers import CardListSerializer, ListCardSerializer
 from decouple import Config, RepositoryEnv
 import logging
 from django.core.paginator import Paginator, EmptyPage
 from django.db.models import Q
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env_file = BASE_DIR / '.env'
@@ -17,6 +19,27 @@ logger = logging.getLogger(__name__)
 class CardListViewSet(viewsets.ModelViewSet):
     queryset = CardList.objects.all()
     serializer_class = CardListSerializer
+
+@api_view(['POST'])
+def add_card_to_list(request):
+    try:
+        list_id = request.data.get('list_id')
+        card_id = request.data.get('card_id')
+        card_type = request.data.get('card_type')
+
+        if card_type == 'pokemon':
+            card = PokemonCardData.objects.get(id=card_id)
+            list_card = ListCard(card_list_id=list_id, pokemon_card=card)
+        elif card_type == 'yugioh':
+            card = YugiohCard.objects.get(id=card_id)
+            list_card = ListCard(card_list_id=list_id, yugioh_card=card)
+
+        list_card.save()
+        serializer = ListCardSerializer(list_card)
+        return Response(serializer.data)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
 
 def fetch_ebay_data(request):
     try:
@@ -106,19 +129,52 @@ def pokemon_cards_api(request):
                 'level': card.level,
                 'hp': card.hp,
                 'types': card.types,
+                'evolvesFrom': card.evolvesFrom,
                 'retreatCost': card.retreatCost,
                 'convertedRetreatCost': card.convertedRetreatCost,
                 'number': card.number,
                 'artist': card.artist,
+                'rules': card.rules,
                 'rarity': card.rarity,
                 'flavorText': card.flavorText,
                 'nationalPokedexNumbers': card.nationalPokedexNumbers,
                 'legalities': card.legalities,
                 'images': card.images,
-                'tcgplayer': card.tcgplayer,
-                'cardmarket': card.cardmarket,
-                'attacks': [{'name': attack.name, 'cost': attack.cost, 'convertedEnergyCost': attack.convertedEnergyCost, 'damage': attack.damage, 'text': attack.text} for attack in card.attacks.all()],
-                'weaknesses': [{'type': weakness.type, 'value': weakness.value} for weakness in card.weaknesses.all()],
+                'tcgplayer': {
+                    'url': card.tcgplayer.url,
+                    'updatedAt': card.tcgplayer.updatedAt,
+                    'prices': card.tcgplayer.prices
+                } if card.tcgplayer else None,
+                'cardmarket': {
+                    'url': card.cardmarket.url,
+                    'updatedAt': card.cardmarket.updatedAt,
+                    'prices': card.cardmarket.prices
+                } if card.cardmarket else None,
+                'abilities': [
+                    {
+                        'name': ability.name,
+                        'text': ability.text,
+                        'type': ability.type
+                    }
+                    for ability in card.abilities.all()
+                ],
+                'attacks': [
+                    {
+                        'name': attack.name,
+                        'cost': attack.cost,
+                        'convertedEnergyCost': attack.convertedEnergyCost,
+                        'damage': attack.damage,
+                        'text': attack.text
+                    }
+                    for attack in card.attacks.all()
+                ],
+                'weaknesses': [
+                    {
+                        'type': weakness.type,
+                        'value': weakness.value
+                    }
+                    for weakness in card.weaknesses.all()
+                ],
                 'set': {
                     'id': card.set.id,
                     'name': card.set.name,
@@ -129,8 +185,7 @@ def pokemon_cards_api(request):
                     'ptcgoCode': card.set.ptcgoCode,
                     'releaseDate': card.set.releaseDate,
                     'updatedAt': card.set.updatedAt,
-                    'symbol': card.set.symbol,
-                    'logo': card.set.logo,
+                    'images': card.set.images
                 } if card.set else None,
             }
             serialized_cards.append(card_dict)

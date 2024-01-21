@@ -1,11 +1,45 @@
-import React, { Component } from 'react';
-import { TextField, Button, Select, MenuItem, Typography, Box, Grid, SelectChangeEvent, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
+import React, { Component, useEffect } from 'react';
+import {
+    TextField,
+    Button,
+    Select,
+    MenuItem,
+    Typography,
+    Box,
+    Grid,
+    SelectChangeEvent,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    DialogContentText,
+    TableHead,
+    TableRow,
+    Paper,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    TableCell,
+    TableBody,
+    TableContainer,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ListDialog from './Types/ListDialog'
 import ListItemComponent from './Types/ListItemComponent';
 import ListsState from './Types/ListsState';
 import CardList from './Types/CardList';
 import CardType from './Types/CardType';
 import formatDate from './helpers/formatDate';
+import PokemonCards from './Cards/Pokemon/PokemonCards';
+import MTGCards from './Cards/MTG/MTGCards';
+import YugiohCards from './Cards/Yugioh/YugiohCards';
+import LorcanaCards from './Cards/Lorcana/LorcanaCards';
+import BaseballCards from './Cards/BaseballCards';
+import FootballCards from './Cards/FootballCards';
+import BasketballCards from './Cards/BasketballCards';
+import HockeyCards from './Cards/HockeyCards';
+import { CardData } from './Cards/Pokemon/CardData';
+import Card from './Types/Card';
 
 class Lists extends Component<{}, ListsState> {
     constructor(props: {}) {
@@ -17,7 +51,8 @@ class Lists extends Component<{}, ListsState> {
             dialogOpen: false,
             selectedList: null,
             deleteDialogOpen: false,
-            listToDelete: null
+            listToDelete: null,
+            addCardsDialogOpen: false,
         };
     }
 
@@ -52,12 +87,49 @@ class Lists extends Component<{}, ListsState> {
                     lists: [...prevState.lists, {
                         ...data,
                     }],
+                    newListName: ''
                 }));
             })
             .catch(error => {
                 console.error('Error:', error);
             });
     }
+
+    convertCardDataToCard = (cardData: CardData, cardType: CardType): Card => {
+        return {
+            id: cardData.id,
+            name: cardData.name,
+            type: cardType
+        };
+    };
+
+    fetchLists = () => {
+        fetch('http://localhost:8000/api/cardlists/')
+            .then(response => response.json())
+            .then(data => this.setState({
+                lists: data.map((list: CardList) => ({ ...list }))
+            }, () => {
+                console.log(this.state.lists);
+            }));
+    };
+
+    handleAddPokemonCardToList = (cardData: CardData) => {
+        const card = this.convertCardDataToCard(cardData, 'Pokemon');
+        const { selectedList, lists } = this.state;
+
+        if (selectedList) {
+            const updatedList = {
+                ...selectedList,
+                cards: [...(selectedList.cards ?? []), card]
+            };
+            this.setState({
+                lists: lists.map(list => list.id === selectedList.id ? updatedList : list),
+                selectedList: updatedList
+            });
+            console.log(selectedList.cards)
+        }
+        this.fetchLists();
+    };
 
     componentDidMount() {
         fetch('http://localhost:8000/api/cardlists/')
@@ -67,9 +139,8 @@ class Lists extends Component<{}, ListsState> {
                     ...list,
                 }))
             }));
+        this.fetchLists();
     }
-
-
 
     handleListNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         this.setState({ newListName: e.target.value });
@@ -80,7 +151,11 @@ class Lists extends Component<{}, ListsState> {
     };
 
     handleAddCards = (list: CardList) => {
-        // Implementation for adding cards to the list
+        this.setState({ addCardsDialogOpen: true, selectedList: list });
+    };
+
+    closeAddCardDialog = () => {
+        this.setState({ addCardsDialogOpen: false });
     };
 
     handleEditList = (updatedList: CardList) => {
@@ -130,7 +205,7 @@ class Lists extends Component<{}, ListsState> {
 
         return (
             <Box>
-                <Typography variant="h6">{type} Lists</Typography>
+                <Typography variant="h6">{type}</Typography>
                 {filteredLists.map((list) => (
                     <ListItemComponent key={list.id} list={list} />
                 ))}
@@ -138,96 +213,106 @@ class Lists extends Component<{}, ListsState> {
         );
     }
 
+    renderListHeader = (): JSX.Element => (
+        <TableHead>
+            <TableRow>
+                <TableCell>List Name</TableCell>
+                <TableCell>Created By</TableCell>
+                <TableCell>Created On</TableCell>
+                <TableCell># of Cards</TableCell>
+                <TableCell>Full List Market Value</TableCell>
+                <TableCell>List Type</TableCell>
+                <TableCell />
+            </TableRow>
+        </TableHead>
+    );
+
+    renderListItems = (type: CardType): JSX.Element => {
+        const { lists } = this.state;
+
+        return (
+            <TableBody>
+                {lists.filter(list => list.type === type).map((list) => (
+                    <TableRow
+                        key={list.id}
+                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                    >
+                        <TableCell component="th" scope="row">
+                            {list.name}
+                        </TableCell>
+                        <TableCell>{list.created_by}</TableCell>
+                        <TableCell>{formatDate(list.created_on)}</TableCell>
+                        <TableCell>{(list.cards && list.cards.length) || 0}</TableCell>
+                        <TableCell>${list.market_value}</TableCell>
+                        <TableCell>{list.type}</TableCell>
+                        <TableCell>
+                            <Button variant="contained" onClick={() => this.handleAddCards(list)}>
+                                Add Cards
+                            </Button>
+                            <Button variant="contained" onClick={() => this.handleDeleteList(list)} sx={{ ml: 2 }}>
+                                Delete List
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        );
+    };
+
     render() {
         const { newListName, newListType, lists, dialogOpen, selectedList } = this.state;
         const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
 
-        const renderListHeader = () => (
-            <Grid container alignItems="center" sx={{ borderBottom: '1px solid #e0e0e0', py: 1 }}>
-                <Grid item xs={2}>
-                    <Typography variant="subtitle1">List Name</Typography>
-                </Grid>
-                <Grid item xs={2}>
-                    <Typography variant="subtitle1">Created By</Typography>
-                </Grid>
-                <Grid item xs={1}>
-                    <Typography variant="subtitle1">Created On</Typography>
-                </Grid>
-                <Grid item xs={1}>
-                    <Typography marginLeft={'30px'} variant="subtitle1"># of Cards</Typography>
-                </Grid>
-                <Grid item xs={2}>
-                    <Typography variant="subtitle1">Full List Market Value</Typography>
-                </Grid>
-                <Grid item xs={1}>
-                    <Typography variant="subtitle1">List Type</Typography>
-                </Grid>
-            </Grid>
-        );
+        let addCardsDialogContent;
+        switch (this.state.selectedList?.type) {
+            case 'Pokemon':
+                addCardsDialogContent = this.state.addCardsDialogOpen
+                    ? <PokemonCards onAddCard={this.handleAddPokemonCardToList} selectedListId={selectedList?.id} />
+                    : <PokemonCards />;
+                break;
+            case 'MTG':
+                addCardsDialogContent = <MTGCards />;
+                break;
+            case 'Yu-Gi-Oh!':
+                addCardsDialogContent = <YugiohCards />;
+                break;
+            case 'Lorcana':
+                addCardsDialogContent = <LorcanaCards />;
+                break;
+            case 'Baseball':
+                addCardsDialogContent = <BaseballCards />;
+                break;
+            case 'Football':
+                addCardsDialogContent = <FootballCards />;
+                break;
+            case 'Basketball':
+                addCardsDialogContent = <BasketballCards />;
+                break;
+            case 'Hockey':
+                addCardsDialogContent = <HockeyCards />;
+                break;
+            default:
+                addCardsDialogContent = <div>Select a card type</div>;
+        }
 
-        const renderListItems = () => cardTypes.map((type) => (
-            <Box key={type} sx={{ mt: 2 }}>
-                {lists.filter(list => list.type === type).map((list) => {
-                    return (
-                        <Grid
-                            container
-                            alignItems="center"
-                            key={list.id}
-                            onClick={() => this.openDialogWithList(list)}
-                            sx={{
-                                py: 1,
-                                '&:hover': {
-                                    backgroundColor: 'rgba(0, 0, 0, 0.4)'
-                                }
-                            }}
-                        >
-                            <Grid item xs={2}>
-                                <Typography>{list.name}</Typography>
-                            </Grid>
-                            <Grid item xs={2}>
-                                <Typography>{list.created_by}</Typography>
-                            </Grid>
-                            <Grid item xs={1}>
-                                <Typography>{formatDate(list.created_on)}</Typography>
-                            </Grid>
-                            <Grid item xs={1}>
-                                <Typography marginLeft={'30px'}>{200}</Typography>
-                            </Grid>
-                            <Grid item xs={2}>
-                                <Typography>${list.market_value}</Typography>
-                            </Grid>
-                            <Grid item xs={1}>
-                                <Typography>{list.type}</Typography>
-                            </Grid>
-                            <Grid item xs={1} marginRight={'50px'}>
-                                <Button
-                                    variant="contained"
-                                    style={{ width: '125px' }}
-                                    onClick={(e) => {
-                                        this.handleAddCards(list);
-                                        e.stopPropagation();
-                                    }}
-                                >
-                                    Add Cards
-                                </Button>
-                            </Grid>
-                            <Grid item xs={1}>
-                                <Button
-                                    variant="contained"
-                                    style={{ width: '125px' }}
-                                    onClick={(e) => {
-                                        this.handleDeleteList(list);
-                                        e.stopPropagation();
-                                    }}
-                                >
-                                    Delete List
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    );
-                })}
-            </Box>
-        ));
+        const addCardsDialog = (
+            <Dialog
+                open={this.state.addCardsDialogOpen}
+                onClose={this.closeAddCardDialog}
+                fullWidth
+                maxWidth="lg"
+            >
+                <DialogTitle id="add-cards-dialog-title">Add Cards</DialogTitle>
+                <DialogContent>
+                    {addCardsDialogContent}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={this.closeAddCardDialog} color="primary">
+                        Close
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        );
 
         const deleteConfirmationDialog = (
             <Dialog
@@ -294,11 +379,25 @@ class Lists extends Component<{}, ListsState> {
                     </Grid>
                 </Grid>
 
-                <Typography variant="h5" gutterBottom component="div" sx={{ mt: 4 }}>
-                    Your Lists
-                </Typography>
-                {renderListHeader()}
-                {renderListItems()}
+                <Typography variant="h5" gutterBottom component="div" sx={{ mt: 4 }} />
+                {cardTypes.map((type) => (
+                    <Accordion key={type}>
+                        <AccordionSummary
+                            expandIcon={<ExpandMoreIcon />}
+                            aria-controls="panel1a-content"
+                            id="panel1a-header"
+                        >
+                            <Typography>{type} Lists</Typography>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                            <TableContainer component={Paper}>
+                                {this.renderListHeader()}
+                                {this.renderListItems(type)}
+                            </TableContainer>
+                        </AccordionDetails>
+                    </Accordion>
+                ))}
+                {addCardsDialog}
                 {deleteConfirmationDialog}
                 {dialogOpen && <ListDialog list={selectedList} onClose={this.closeDialog} />}
             </Box>

@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.contrib.postgres.fields import ArrayField
 
 ####################################################
 # Lists
@@ -57,25 +57,10 @@ class CardPrice(models.Model):
 ####################################################
 # Pokemon Tables
 ####################################################
-class PokemonWeakness(models.Model):
+class PokemonAbility(models.Model):
+    name = models.CharField(max_length=255)
+    text = models.TextField()
     type = models.CharField(max_length=100)
-    value = models.CharField(max_length=100)
-
-    def __str__(self):
-        return f'{self.type}: {self.value}'
-    
-class PokemonCardSet(models.Model):
-    id = models.CharField(max_length=100, primary_key=True)
-    name = models.CharField(max_length=200)
-    series = models.CharField(max_length=200)
-    printedTotal = models.IntegerField()
-    total = models.IntegerField()
-    legalities = models.JSONField()
-    ptcgoCode = models.CharField(max_length=100)
-    releaseDate = models.DateField(null=True)
-    updatedAt = models.DateTimeField(null=True)
-    symbol = models.CharField(max_length=200)
-    logo = models.CharField(max_length=200)
 
     def __str__(self):
         return self.name
@@ -90,28 +75,63 @@ class PokemonAttack(models.Model):
     def __str__(self):
         return self.name
 
+class PokemonWeakness(models.Model):
+    type = models.CharField(max_length=100)
+    value = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f'{self.type} {self.value}'
+
+class PokemonCardSet(models.Model):
+    id = models.CharField(max_length=100, primary_key=True)
+    name = models.CharField(max_length=200)
+    series = models.CharField(max_length=200)
+    printedTotal = models.IntegerField()
+    total = models.IntegerField()
+    legalities = models.JSONField()
+    ptcgoCode = models.CharField(max_length=100)
+    releaseDate = models.DateField()
+    updatedAt = models.DateTimeField(null=True)
+    images = models.JSONField()
+
+    def __str__(self):
+        return self.name
+
+class PokemonTcgplayer(models.Model):
+    url = models.URLField(max_length=255)
+    updatedAt = models.DateTimeField(null=True)
+    prices = models.JSONField()
+
+class PokemonCardmarket(models.Model):
+    url = models.URLField(max_length=255)
+    updatedAt = models.DateTimeField(null=True)
+    prices = models.JSONField()
+
 class PokemonCardData(models.Model):
     id = models.CharField(max_length=100, primary_key=True)
     name = models.CharField(max_length=200)
     supertype = models.CharField(max_length=100)
     subtypes = models.JSONField()
-    level = models.CharField(max_length=50)
+    level = models.CharField(max_length=50, null=True, blank=True)
     hp = models.CharField(max_length=50)
     types = models.JSONField()
+    evolvesFrom = models.CharField(max_length=200, null=True, blank=True)
+    abilities = models.ManyToManyField(PokemonAbility, blank=True)
     attacks = models.ManyToManyField(PokemonAttack)
     weaknesses = models.ManyToManyField(PokemonWeakness)
     retreatCost = models.JSONField()
     convertedRetreatCost = models.IntegerField()
-    set = models.ForeignKey(PokemonCardSet, on_delete=models.CASCADE, null=True)
+    set = models.ForeignKey(PokemonCardSet, on_delete=models.CASCADE)
+    rules = ArrayField(models.TextField(), blank=True, null=True)
     number = models.CharField(max_length=50)
     artist = models.CharField(max_length=200)
     rarity = models.CharField(max_length=100)
-    flavorText = models.TextField()
+    flavorText = models.TextField(null=True, blank=True)
     nationalPokedexNumbers = models.JSONField()
     legalities = models.JSONField()
     images = models.JSONField()
-    tcgplayer = models.JSONField(null=True, blank=True)
-    cardmarket = models.JSONField(null=True, blank=True)
+    tcgplayer = models.ForeignKey(PokemonTcgplayer, on_delete=models.SET_NULL, null=True, blank=True)
+    cardmarket = models.ForeignKey(PokemonCardmarket, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -198,3 +218,15 @@ class MTGCardFace(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+
+####################################################
+# Setup for many-to-many tables with lists and cards
+####################################################
+class ListCard(models.Model):
+    card_list = models.ForeignKey(CardList, on_delete=models.CASCADE, related_name='list_cards')
+    pokemon_card = models.ForeignKey(PokemonCardData, on_delete=models.SET_NULL, null=True, blank=True)
+    yugioh_card = models.ForeignKey(YugiohCard, on_delete=models.SET_NULL, null=True, blank=True)
+
+CardList.cards = models.ManyToManyField('app_name.PokemonCardData', through='app_name.ListCard', related_name='card_lists')

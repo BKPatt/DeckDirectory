@@ -1,13 +1,16 @@
+from django.utils import timezone
+import datetime
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from api.models import PokemonCardData, PokemonAttack, PokemonWeakness, PokemonCardSet
+from api.models import (
+    PokemonCardData, PokemonAttack, PokemonWeakness, PokemonCardSet,
+    PokemonAbility, PokemonTcgplayer, PokemonCardmarket
+)
 import requests
-import datetime
-from django.utils import timezone
 from pathlib import Path
 from decouple import Config, RepositoryEnv
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 env_file = BASE_DIR / '.env'
 config = Config(RepositoryEnv(env_file))
 
@@ -22,6 +25,7 @@ def convert_date_format(date_str, is_datetime=False):
                 )
                 return aware_datetime.strftime('%Y-%m-%d %H:%M:%S')
             else:
+                # Assuming date-only fields are not required to be timezone-aware
                 return datetime.datetime.strptime(date_str, '%Y/%m/%d').strftime('%Y-%m-%d')
         except ValueError:
             return None
@@ -35,7 +39,6 @@ class Command(BaseCommand):
         headers = {'X-Api-Key': config('REACT_APP_POKEMON_TCG_API_KEY')}
         page = 1
         cards_per_page = 250
-        all_cards = []
 
         while True:
             params = {'page': page, 'pageSize': cards_per_page}
@@ -47,7 +50,46 @@ class Command(BaseCommand):
             data = response.json()
             for card_data in data.get('data', []):
                 with transaction.atomic():
-                    # Create or update the main card data
+                    card_set_data = card_data.get('set', {})
+                    card_set, _ = PokemonCardSet.objects.update_or_create(
+                        id=card_set_data.get('id', ''),
+                        defaults={
+                            'name': card_set_data.get('name', ''),
+                            'series': card_set_data.get('series', ''),
+                            'printedTotal': card_set_data.get('printedTotal', 0),
+                            'total': card_set_data.get('total', 0),
+                            'legalities': card_set_data.get('legalities', {}),
+                            'ptcgoCode': card_set_data.get('ptcgoCode', ''),
+                            'releaseDate': convert_date_format(card_set_data.get('releaseDate', '')),
+                            'updatedAt': convert_date_format(card_set_data.get('updatedAt', ''), is_datetime=True),
+                            'images': card_set_data.get('images', {})
+                        }
+                    )
+
+                    tcgplayer_data = card_data.get('tcgplayer', {})
+                    if tcgplayer_data:
+                        tcgplayer, _ = PokemonTcgplayer.objects.update_or_create(
+                            url=tcgplayer_data.get('url', ''),
+                            defaults={
+                                'updatedAt': convert_date_format(tcgplayer_data.get('updatedAt', None), is_datetime=True),
+                                'prices': tcgplayer_data.get('prices', {})
+                            }
+                        )
+                    else:
+                        tcgplayer = None
+
+                    cardmarket_data = card_data.get('cardmarket', {})
+                    if cardmarket_data:
+                        cardmarket, _ = PokemonCardmarket.objects.update_or_create(
+                            url=cardmarket_data.get('url', ''),
+                            defaults={
+                                'updatedAt': convert_date_format(tcgplayer_data.get('updatedAt', None), is_datetime=True),
+                                'prices': cardmarket_data.get('prices', {})
+                            }
+                        )
+                    else:
+                        cardmarket = None
+
                     card, created = PokemonCardData.objects.update_or_create(
                         id=card_data['id'],
                         defaults={
@@ -57,6 +99,7 @@ class Command(BaseCommand):
                             'level': card_data.get('level', ''),
                             'hp': card_data.get('hp', ''),
                             'types': card_data.get('types', []),
+                            'evolvesFrom': card_data.get('evolvesFrom', ''),
                             'retreatCost': card_data.get('retreatCost', []),
                             'convertedRetreatCost': card_data.get('convertedRetreatCost', 0),
                             'number': card_data.get('number', ''),
@@ -66,13 +109,26 @@ class Command(BaseCommand):
                             'nationalPokedexNumbers': card_data.get('nationalPokedexNumbers', []),
                             'legalities': card_data.get('legalities', {}),
                             'images': card_data.get('images', {}),
-                            'tcgplayer': card_data.get('tcgplayer', {}),
-                            'cardmarket': card_data.get('cardmarket', {}),
+                            'set': card_set,
+                            'rules': card_data.get('rules', []),
+                            'tcgplayer': tcgplayer,
+                            'cardmarket': cardmarket,
                         }
                     )
 
-                    # Handling attacks
-                    for attack_data in card_data.get('attacks', []):
+                    abilities_data = card_data.get('abilities', [])
+                    for ability_data in abilities_data:
+                        ability, _ = PokemonAbility.objects.get_or_create(
+                            name=ability_data['name'],
+                            defaults={
+                                'text': ability_data.get('text', ''),
+                                'type': ability_data.get('type', '')
+                            }
+                        )
+                        card.abilities.add(ability)
+
+                    attacks_data = card_data.get('attacks', [])
+                    for attack_data in attacks_data:
                         attack, _ = PokemonAttack.objects.get_or_create(
                             name=attack_data['name'],
                             defaults={
@@ -84,39 +140,17 @@ class Command(BaseCommand):
                         )
                         card.attacks.add(attack)
 
-                    # Handling weaknesses
-                    for weakness_data in card_data.get('weaknesses', []):
+                    weaknesses_data = card_data.get('weaknesses', [])
+                    for weakness_data in weaknesses_data:
                         weakness, _ = PokemonWeakness.objects.get_or_create(
                             type=weakness_data['type'],
                             defaults={'value': weakness_data.get('value', '')}
                         )
                         card.weaknesses.add(weakness)
 
-                    # Handling card set
-                    set_data = card_data.get('set', {})
-                    card_set = None
-                    if set_data:
-                        card_set, _ = PokemonCardSet.objects.get_or_create(
-                            id=set_data['id'],
-                            defaults={
-                                'name': set_data.get('name', ''),
-                                'series': set_data.get('series', ''),
-                                'printedTotal': set_data.get('printedTotal', 0),
-                                'total': set_data.get('total', 0),
-                                'legalities': set_data.get('legalities', {}),
-                                'ptcgoCode': set_data.get('ptcgoCode', ''),
-                                'releaseDate': convert_date_format(set_data.get('releaseDate', '')),
-                                'updatedAt': convert_date_format(set_data.get('updatedAt', ''), is_datetime=True),
-                                'symbol': set_data.get('symbol', ''),
-                                'logo': set_data.get('logo', ''),
-                            }
-                        )
-                        card.set = card_set
-
-                    all_cards.append(card)
                     card.save()
 
-            if page >= 75:
+            if page >= 100:
                 break
             page += 1
 
