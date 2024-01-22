@@ -12,6 +12,9 @@ class CardList(models.Model):
     type = models.CharField(max_length=50)
     market_value = models.DecimalField(max_digits=10, decimal_places=2)
     cards = models.ForeignKey
+    yugioh_cards = models.ForeignKey
+    mtg_cards = models.ForeignKey
+    lorcana_cards = models.ForeignKey
 
 
 
@@ -228,5 +231,10 @@ class ListCard(models.Model):
     card_list = models.ForeignKey(CardList, on_delete=models.CASCADE, related_name='list_cards')
     pokemon_card = models.ForeignKey(PokemonCardData, on_delete=models.SET_NULL, null=True, blank=True)
     yugioh_card = models.ForeignKey(YugiohCard, on_delete=models.SET_NULL, null=True, blank=True)
+    mtg_card = models.ForeignKey(MTGCardsData, on_delete=models.SET_NULL, null=True, blank=True)
+    lorcana_card = models.ForeignKey(LorcanaCardData, on_delete=models.SET_NULL, null=True, blank=True)
 
 CardList.cards = models.ManyToManyField('app_name.PokemonCardData', through='app_name.ListCard', related_name='card_lists')
+CardList.yugioh_cards = models.ManyToManyField('app_name.YugiohCard', through='app_name.ListCard', related_name='yugioh_card_lists')
+CardList.mtg_cards = models.ManyToManyField('app_name.MTGCardsData', through='app_name.ListCard', related_name='mtg_card_lists')
+CardList.lorcana_cards = models.ManyToManyField('app_name.LorcanaCardData', through='app_name.ListCard', related_name='lorcana_card_lists')

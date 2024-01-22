@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import Default from '../../assets/Default.png'
 import MTGCardData from './MTGCardData';
 
@@ -35,7 +34,7 @@ const MTGCards: React.FC<MTGCardsProps> = ({ selectedListId, isInAddMode }) => {
             if (isInAddMode == null) {
                 url = `http://localhost:8000/api/mtg-cards/`
             } else {
-                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/mtg-cards/`;
+                url = !isInAddMode ? `http://localhost:8000/api/mtg-cards-by-list/${selectedListId}/` : `http://localhost:8000/api/mtg-cards/`;
             }
             const response = await axios.get(url, params);
             if (Array.isArray(response.data.data)) {

@@ -107,30 +107,11 @@ class Lists extends Component<{}, ListsState> {
     fetchLists = () => {
         fetch('http://localhost:8000/api/cardlists/')
             .then(response => response.json())
-            .then(data => this.setState({
-                lists: data.map((list: CardList) => ({ ...list }))
-            }));
-    };
-
-    handleAddPokemonCardToList = (cardData: CardData) => {
-        const card = this.convertCardDataToCard(cardData, 'Pokemon');
-        const { selectedList, lists } = this.state;
-
-        console.log("Added")
-
-        if (selectedList) {
-            const updatedList = {
-                ...selectedList,
-                cards: [...(selectedList.cards ?? []), card]
-            };
-
-            this.setState({
-                lists: lists.map(list => list.id === selectedList.id ? updatedList : list),
-                selectedList: updatedList
-            }, () => {
-                this.fetchLists();
+            .then(data => {
+                this.setState({
+                    lists: data.map((list: CardList) => ({ ...list }))
+                });
             });
-        }
     };
 
     componentDidMount() {
@@ -249,7 +230,7 @@ class Lists extends Component<{}, ListsState> {
                         </TableCell>
                         <TableCell>{list.created_by}</TableCell>
                         <TableCell>{formatDate(list.created_on)}</TableCell>
-                        <TableCell>{(list.cards && list.cards.length) || 0}</TableCell>
+                        <TableCell>{(list.cards && (list.cards.length)) || 0}</TableCell>
                         <TableCell>${list.market_value}</TableCell>
                         <TableCell>{list.type}</TableCell>
                         <TableCell>
@@ -281,7 +262,7 @@ class Lists extends Component<{}, ListsState> {
     };
 
     render() {
-        const { newListName, newListType, lists, dialogOpen, selectedList } = this.state;
+        const { newListName, newListType, dialogOpen, selectedList } = this.state;
         const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
 
         let addCardsDialogContent;

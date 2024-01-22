@@ -32,7 +32,7 @@ const YugiohCards: React.FC<YugiohCardsProps> = ({ selectedListId, isInAddMode }
             if (isInAddMode == null) {
                 url = `http://localhost:8000/api/fetch-yugioh-cards/`
             } else {
-                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/fetch-yugioh-cards/`;
+                url = !isInAddMode ? `http://localhost:8000/api/yugioh-cards-by-list/${selectedListId}/` : `http://localhost:8000/api/fetch-yugioh-cards/`;
             }
             const response = await axios.get(url, params);
             if (Array.isArray(response.data.data)) {

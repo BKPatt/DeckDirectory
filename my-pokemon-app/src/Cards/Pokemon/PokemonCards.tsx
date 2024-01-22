@@ -18,8 +18,9 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
     const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
+    const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
 
-    const fetchData = async (page = 1) => {
+    const fetchData = async (page: number = 1) => {
         try {
             const params = {
                 params: {
@@ -29,15 +30,29 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
                     list_id: selectedListId,
                 }
             };
-            let url
-            if (isInAddMode == null) {
-                url = `http://localhost:8000/api/pokemon-cards/`
-            } else {
-                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/pokemon-cards/`;
-            }
+            let url = isInAddMode == null ? `http://localhost:8000/api/pokemon-cards/`
+                : !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/`
+                    : `http://localhost:8000/api/pokemon-cards/`;
             const response = await axios.get(url, params);
+
             if (Array.isArray(response.data.data)) {
-                setCards(response.data.data);
+                let fetchedCards: CardData[] = response.data.data;
+
+                // Filter unique cards and count their quantities
+                const uniqueCards: CardData[] = [];
+                const cardCount: { [key: string]: number } = {};
+
+                fetchedCards.forEach((card: CardData) => {
+                    if (!cardCount[card.id]) {
+                        uniqueCards.push(card);
+                        cardCount[card.id] = 1;
+                    } else {
+                        cardCount[card.id]++;
+                    }
+                });
+
+                setCards(uniqueCards);
+                setCardQuantities(cardCount);
                 setTotalPages(response.data.total_pages);
             } else {
                 console.error('Unexpected response format');
@@ -47,6 +62,7 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
             console.error('Error fetching data: ', error);
         }
     };
+
 
     useEffect(() => {
         fetchData();
@@ -73,6 +89,30 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
         }
     };
 
+    const incrementCardQuantity = (cardId: string) => {
+        setCardQuantities(prevQuantities => ({
+            ...prevQuantities,
+            [cardId]: (prevQuantities[cardId] || 0) + 1
+        }));
+    };
+
+    const decrementCardQuantity = (cardId: string) => {
+        setCardQuantities(prevQuantities => {
+            if (prevQuantities[cardId] > 1) {
+                return { ...prevQuantities, [cardId]: prevQuantities[cardId] - 1 };
+            }
+            return prevQuantities;
+        });
+    };
+
+    const deleteCard = (cardId: string) => {
+        setCardQuantities(prevQuantities => {
+            const newQuantities = { ...prevQuantities };
+            delete newQuantities[cardId];
+            return newQuantities;
+        });
+    };
+
     const handleSearchClick = () => {
         setCurrentPage(1);
         fetchData(1);
@@ -90,6 +130,12 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
+    };
+
+    const handleDeleteCard = async (card: CardData) => {
+        // Add your logic for deleting a card from the list here
+        console.log(`Delete card ${card.id}`);
+        deleteCard(card.id);
     };
 
     const cardInfo = selectedCard && (
@@ -142,15 +188,28 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
                             <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
                                 {card.name}
                             </Typography>
-                            <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
-                                {isInAddMode && (
-                                    <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ m: 1 }}>
-                                        Add
-                                    </Button>
-                                )}
-                                <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ m: 1 }}>
+                            <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
+                                <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ mb: 1 }}>
                                     Info
                                 </Button>
+                                {!isInAddMode && (
+                                    <>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            {cardQuantities[card.id] > 1 && (
+                                                <>
+                                                    <Button variant="contained" onClick={() => decrementCardQuantity(card.id)}>-</Button>
+                                                    <Typography sx={{ mx: 1 }}>{cardQuantities[card.id]}</Typography>
+                                                    <Button variant="contained" onClick={() => incrementCardQuantity(card.id)}>+</Button>
+                                                </>
+                                            )}
+                                        </Box>
+                                        {cardQuantities[card.id] === 1 && (
+                                            <Button variant="contained" color="secondary" onClick={() => handleDeleteCard(card)} sx={{ mt: 1 }}>
+                                                Delete
+                                            </Button>
+                                        )}
+                                    </>
+                                )}
                             </Box>
                         </Card>
                     </Grid>

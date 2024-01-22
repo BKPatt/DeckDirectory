@@ -21,13 +21,13 @@ class ListDialog extends Component<ListDialogProps> {
     renderCardContent = (listType: CardType) => {
         switch (listType) {
             case 'Pokemon':
-                return <PokemonCards selectedListId={this.props.list?.id} />;
+                return <PokemonCards selectedListId={this.props.list?.id} isInAddMode={false} />;
             case 'MTG':
-                return <MTGCards selectedListId={this.props.list?.id} />;
+                return <MTGCards selectedListId={this.props.list?.id} isInAddMode={false} />;
             case 'Yu-Gi-Oh!':
-                return <YugiohCards selectedListId={this.props.list?.id} />;
+                return <YugiohCards selectedListId={this.props.list?.id} isInAddMode={false} />;
             case 'Lorcana':
-                return <LorcanaCards />;
+                return <LorcanaCards selectedListId={this.props.list?.id} isInAddMode={false} />;
             case 'Baseball':
                 return <BaseballCards />;
             case 'Football':

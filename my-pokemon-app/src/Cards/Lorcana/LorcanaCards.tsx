@@ -14,7 +14,6 @@ const LorcanaCards: React.FC<LorcanaCardsProps> = ({ selectedListId, isInAddMode
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [cardsPerPage] = useState(20);
-    const navigate = useNavigate();
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
     const [selectedCard, setSelectedCard] = useState<LorcanaCardData | null>(null);
@@ -34,7 +33,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps> = ({ selectedListId, isInAddMode
             if (isInAddMode == null) {
                 url = `http://localhost:8000/api/lorcana-cards/`
             } else {
-                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/lorcana-cards/`;
+                url = !isInAddMode ? `http://localhost:8000/api/lorcana-cards-by-list/${selectedListId}/` : `http://localhost:8000/api/lorcana-cards/`;
             }
             const response = await axios.get(url, params);
             if (Array.isArray(response.data.data)) {
@@ -78,7 +77,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps> = ({ selectedListId, isInAddMode
                 const response = await axios.post('http://localhost:8000/api/add-card-to-list/', {
                     list_id: selectedListId,
                     card_id: card.id,
-                    card_type: 'yugioh'
+                    card_type: 'lorcana'
                 });
 
                 if (response.status === 200) {

@@ -33,6 +33,14 @@ def add_card_to_list(request):
         elif card_type == 'yugioh':
             card = YugiohCard.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, yugioh_card=card)
+        elif card_type == 'mtg':
+            card = MTGCardsData.objects.get(id=card_id)
+            list_card = ListCard(card_list_id=list_id, mtg_card=card)
+        elif card_type == 'lorcana':
+            card = LorcanaCardData.objects.get(id=card_id)
+            list_card = ListCard(card_list_id=list_id, lorcana_card=card)
+        else:
+            return Response({'error': 'Invalid card type'}, status=400)
 
         list_card.save()
 
@@ -205,6 +213,146 @@ def get_pokemon_cards_by_list(request, list_id):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+    
+
+@api_view(['GET'])
+def get_yugioh_cards_by_list(request, list_id):
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    search_term = request.GET.get('search', '')
+
+    list_cards = ListCard.objects.filter(card_list_id=list_id, yugioh_card__isnull=False).select_related('yugioh_card')
+    yugioh_cards = [lc.yugioh_card for lc in list_cards]
+
+    if search_term:
+        yugioh_cards = [card for card in yugioh_cards if search_term.lower() in card.name.lower()]
+
+    paginator = Paginator(yugioh_cards, page_size)
+    try:
+        current_page = paginator.page(page)
+    except EmptyPage:
+        return Response({'error': 'Page not found'}, status=404)
+
+    serialized_data = []
+    for card in current_page:
+        card_data = {
+            'id': card.id,
+            'name': card.name,
+            'type': card.card_type,
+            'frameType': card.frame_type,
+            'desc': card.description,
+            'atk': card.attack,
+            'def': card.defense,
+            'level': card.level,
+            'race': card.race,
+            'attribute': card.attribute,
+            'card_sets': list(card.card_sets.values()),
+            'card_images': list(card.card_images.values()),
+            'card_prices': list(card.card_prices.values()),
+        }
+        serialized_data.append(card_data)
+
+    return JsonResponse({
+        'data': serialized_data,
+        'total_pages': paginator.num_pages
+    })
+
+
+@api_view(['GET'])
+def get_mtg_cards_by_list(request, list_id):
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    search_term = request.GET.get('search', '')
+
+    list_cards = ListCard.objects.filter(card_list_id=list_id, mtg_card__isnull=False).select_related('mtg_card')
+    mtg_cards = [lc.mtg_card for lc in list_cards]
+
+    if search_term:
+        mtg_cards = [card for card in mtg_cards if search_term.lower() in card.name.lower()]
+
+    paginator = Paginator(mtg_cards, page_size)
+    try:
+        current_page = paginator.page(page)
+    except EmptyPage:
+        return Response({'error': 'Page not found'}, status=404)
+
+    serialized_data = []
+    for card in current_page:
+        card_data = {
+            'id': card.id,
+            'name': card.name,
+            'lang': card.lang,
+            'released_at': card.released_at,
+            'uri': card.uri,
+            'layout': card.layout,
+            'image_uris': card.image_uris,
+            'cmc': card.cmc,
+            'type_line': card.type_line,
+            'color_identity': card.color_identity,
+            'keywords': card.keywords,
+            'legalities': card.legalities,
+            'games': card.games,
+            'set': card.set,
+            'set_name': card.set_name,
+            'set_type': card.set_type,
+            'rarity': card.rarity,
+            'artist': card.artist,
+            'prices': card.prices,
+            'related_uris': card.related_uris,
+            'card_faces': [{'name': face.name, 'mana_cost': face.mana_cost, 'type_line': face.type_line, 'oracle_text': face.oracle_text, 'colors': face.colors, 'power': face.power, 'toughness': face.toughness, 'artist': face.artist, 'image_uris': face.image_uris} for face in card.card_faces.all()],
+            'all_parts': [{'component': part.component, 'name': part.name, 'type_line': part.type_line, 'uri': part.uri} for part in card.all_parts.all()],
+        }
+        serialized_data.append(card_data)
+
+    return JsonResponse({
+        'data': serialized_data,
+        'total_pages': paginator.num_pages
+    })
+
+
+@api_view(['GET'])
+def get_lorcana_cards_by_list(request, list_id):
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    search_term = request.GET.get('search', '')
+
+    list_cards = ListCard.objects.filter(card_list_id=list_id, lorcana_card__isnull=False).select_related('lorcana_card')
+    lorcana_cards = [lc.lorcana_card for lc in list_cards]
+
+    if search_term:
+        lorcana_cards = [card for card in lorcana_cards if search_term.lower() in card.name.lower()]
+
+    paginator = Paginator(lorcana_cards, page_size)
+    try:
+        current_page = paginator.page(page)
+    except EmptyPage:
+        return Response({'error': 'Page not found'}, status=404)
+
+    serialized_data = []
+    for card in current_page:
+        card_data = {
+            'id': card.id,
+            'name': card.name,
+            'artist': card.artist,
+            'set_name': card.set_name,
+            'set_num': card.set_num,
+            'color': card.color,
+            'image': card.image,
+            'cost': card.cost,
+            'inkable': card.inkable,
+            'type': card.type,
+            'rarity': card.rarity,
+            'flavor_text': card.flavor_text,
+            'card_num': card.card_num,
+            'body_text': card.body_text,
+            'set_id': card.set_id,
+        }
+        serialized_data.append(card_data)
+
+    return JsonResponse({
+        'data': serialized_data,
+        'total_pages': paginator.num_pages
+    })
 
 
 def pokemon_cards_api(request):

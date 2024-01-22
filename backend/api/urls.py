@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CardListViewSet, add_card_to_list, fetch_mtg_cards, get_pokemon_cards_by_list
+from .views import CardListViewSet, add_card_to_list, fetch_mtg_cards, get_pokemon_cards_by_list, get_yugioh_cards_by_list, get_mtg_cards_by_list, get_lorcana_cards_by_list
 from .views import fetch_ebay_data
 from .views import fetch_yugioh_cards
 from .views import pokemon_cards_api
@@ -18,4 +18,7 @@ urlpatterns = [
     path('mtg-cards/', fetch_mtg_cards, name='fetch_mtg_cards'),
     path('add-card-to-list/', add_card_to_list, name='add-card-to-list'),
     path('cards-by-list/<int:list_id>/', get_pokemon_cards_by_list, name='cards-by-list'),
+    path('yugioh-cards-by-list/<int:list_id>/', get_yugioh_cards_by_list, name='yugioh-cards-by-list'),
+    path('mtg-cards-by-list/<int:list_id>/', get_mtg_cards_by_list, name='mtg-cards-by-list'),
+    path('lorcana-cards-by-list/<int:list_id>/', get_lorcana_cards_by_list, name='lorcana-cards-by-list'),
 ]
