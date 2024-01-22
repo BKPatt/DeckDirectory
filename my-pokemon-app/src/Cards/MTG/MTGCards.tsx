@@ -5,21 +5,46 @@ import { useNavigate } from 'react-router-dom';
 import Default from '../../assets/Default.png'
 import MTGCardData from './MTGCardData';
 
-const MTGCards = () => {
+type MTGCardsProps = {
+    selectedListId?: string;
+    isInAddMode?: boolean;
+};
+
+const MTGCards: React.FC<MTGCardsProps> = ({ selectedListId, isInAddMode }) => {
     const [cards, setCards] = useState<MTGCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [cardsPerPage] = useState(20);
-    const navigate = useNavigate();
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
+    const [selectedCard, setSelectedCard] = useState<MTGCardData | null>(null);
+    const [showData, setShowData] = useState(false);
 
-    const fetchData = async (page = currentPage) => {
+
+    const fetchData = async (page = 1) => {
         try {
-            let url = `http://localhost:8000/api/mtg-cards/?search=${encodeURIComponent(search)}&page=${page}`;
-            const response = await axios.get(url);
-            setCards(response.data.data);
-            setTotalPages(response.data.total_pages);
+            const params = {
+                params: {
+                    search: encodeURIComponent(search),
+                    page: page,
+                    page_size: cardsPerPage,
+                    list_id: selectedListId,
+                }
+            };
+            let url
+            if (isInAddMode == null) {
+                url = `http://localhost:8000/api/mtg-cards/`
+            } else {
+                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/mtg-cards/`;
+            }
+            const response = await axios.get(url, params);
+            if (Array.isArray(response.data.data)) {
+                setCards(response.data.data);
+                setTotalPages(response.data.total_pages);
+            } else {
+                console.error('Unexpected response format');
+            }
+            setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
         }
@@ -27,10 +52,31 @@ const MTGCards = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+        if (selectedListId) {
+            fetchData();
+        }
+    }, [selectedListId]);
+
+    const handleAddCard = async (card: MTGCardData) => {
+        if (selectedListId) {
+            try {
+                const response = await axios.post('http://localhost:8000/api/add-card-to-list/', {
+                    list_id: selectedListId,
+                    card_id: card.id,
+                    card_type: 'mtg'
+                });
+
+                if (response.status === 200) {
+                    console.log('Card added to list successfully');
+                }
+            } catch (error) {
+                console.error('Error adding card to list:', error);
+            }
+        }
+    };
 
     const handleSearchClick = () => {
-        fetchData();
+        fetchData(1);
         setCurrentPage(1);
     };
 
@@ -39,8 +85,14 @@ const MTGCards = () => {
         fetchData(value);
     };
 
-    const handleCardClick = (cardName: string) => {
-        navigate(`/cards/mtg/${encodeURIComponent(cardName)}`);
+    const handleCardInfo = (card: MTGCardData) => {
+        setSelectedCard(card);
+        setShowData(true);
+    };
+
+    const handleCloseDialog = () => {
+        setShowData(false);
+        setSelectedCard(null);
     };
 
     return (
@@ -65,7 +117,7 @@ const MTGCards = () => {
                 {cards.map((card, index) => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                            <Card onClick={() => handleCardClick(card.name)}>
+                            <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>
                                 <CardMedia
                                     component="img"
                                     height="auto"
@@ -75,6 +127,16 @@ const MTGCards = () => {
                                 <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
                                     {card.name}
                                 </Typography>
+                                <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
+                                    {isInAddMode && (
+                                        <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ m: 1 }}>
+                                            Add
+                                        </Button>
+                                    )}
+                                    <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ m: 1 }}>
+                                        Info
+                                    </Button>
+                                </Box>
                             </Card>
                         </Grid>
                     );

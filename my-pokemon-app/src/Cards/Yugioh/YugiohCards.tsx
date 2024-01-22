@@ -1,30 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import YugiohCardData from './YugiohCardData';
 
-const YugiohCards = () => {
+type YugiohCardsProps = {
+    selectedListId?: string;
+    isInAddMode?: boolean;
+};
+
+const YugiohCards: React.FC<YugiohCardsProps> = ({ selectedListId, isInAddMode }) => {
     const [cards, setCards] = useState<YugiohCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [cardsPerPage] = useState(20);
-    const navigate = useNavigate();
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
+    const [selectedCard, setSelectedCard] = useState<YugiohCardData | null>(null);
+    const [showData, setShowData] = useState(false);
 
     const fetchData = async (page = 1) => {
         try {
             const params = {
                 params: {
-                    name: search,
+                    search: search,
                     page: page,
-                    page_size: cardsPerPage
+                    page_size: cardsPerPage,
+                    list_id: selectedListId,
                 }
             };
-            const response = await axios.get('http://localhost:8000/api/fetch-yugioh-cards/', params);
-            setCards(response.data.data);
-            setTotalPages(response.data.total_pages);
+            let url
+            if (isInAddMode == null) {
+                url = `http://localhost:8000/api/fetch-yugioh-cards/`
+            } else {
+                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/fetch-yugioh-cards/`;
+            }
+            const response = await axios.get(url, params);
+            if (Array.isArray(response.data.data)) {
+                setCards(response.data.data);
+                setTotalPages(response.data.total_pages);
+            } else {
+                console.error('Unexpected response format');
+            }
             setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
@@ -33,9 +49,31 @@ const YugiohCards = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+        if (selectedListId) {
+            fetchData();
+        }
+    }, [selectedListId]);
+
+    const handleAddCard = async (card: YugiohCardData) => {
+        if (selectedListId) {
+            try {
+                const response = await axios.post('http://localhost:8000/api/add-card-to-list/', {
+                    list_id: selectedListId,
+                    card_id: card.id,
+                    card_type: 'yugioh'
+                });
+
+                if (response.status === 200) {
+                    console.log('Card added to list successfully');
+                }
+            } catch (error) {
+                console.error('Error adding card to list:', error);
+            }
+        }
+    };
 
     const handlePageChange = (value: number) => {
+        setCurrentPage(value);
         fetchData(value);
     };
 
@@ -44,8 +82,14 @@ const YugiohCards = () => {
         setCurrentPage(1);
     };
 
-    const handleCardClick = (cardName: string) => {
-        navigate(`/cards/yugioh/${encodeURIComponent(cardName)}`);
+    const handleCardInfo = (card: YugiohCardData) => {
+        setSelectedCard(card);
+        setShowData(true);
+    };
+
+    const handleCloseDialog = () => {
+        setShowData(false);
+        setSelectedCard(null);
     };
 
     return (
@@ -70,7 +114,7 @@ const YugiohCards = () => {
                 {cards.map((card, index) => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                            <Card onClick={() => handleCardClick(card.name)}>
+                            <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>
                                 <CardMedia
                                     component="img"
                                     height="auto"
@@ -80,6 +124,16 @@ const YugiohCards = () => {
                                 <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
                                     {card.name}
                                 </Typography>
+                                <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
+                                    {isInAddMode && (
+                                        <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ m: 1 }}>
+                                            Add
+                                        </Button>
+                                    )}
+                                    <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ m: 1 }}>
+                                        Info
+                                    </Button>
+                                </Box>
                             </Card>
                         </Grid>
                     );

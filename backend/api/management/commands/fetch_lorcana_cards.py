@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
-from backend.api.models import LorcanaCardData
 import requests
+from backend.api.models import LorcanaCardData
 
 class Command(BaseCommand):
     help = 'Fetches and updates Lorcana cards in the database'
@@ -11,6 +11,7 @@ class Command(BaseCommand):
             response = requests.get(url)
             response.raise_for_status()
             cards_data = response.json()
+            print(card_data)
 
             for card_data in cards_data:
                 lorcana_card, created = LorcanaCardData.objects.get_or_create(

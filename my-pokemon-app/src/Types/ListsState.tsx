@@ -10,6 +10,7 @@ type ListsState = {
     deleteDialogOpen: boolean;
     listToDelete: CardList | null;
     addCardsDialogOpen: boolean;
+    isInAddMode: boolean;
 };
 
 export default ListsState;

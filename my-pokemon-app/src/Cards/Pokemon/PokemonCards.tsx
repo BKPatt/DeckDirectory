@@ -5,11 +5,11 @@ import { CardData } from './CardData';
 import CardInfo from './PokemonCardInfo';
 
 type PokemonCardsProps = {
-    onAddCard?: (card: CardData) => void;
     selectedListId?: string;
+    isInAddMode?: boolean;
 };
 
-const PokemonCards: React.FC<PokemonCardsProps> = ({ onAddCard, selectedListId }) => {
+const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode }) => {
     const [cards, setCards] = useState<CardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -25,12 +25,23 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ onAddCard, selectedListId }
                 params: {
                     search: search,
                     page: page,
-                    page_size: cardsPerPage
+                    page_size: cardsPerPage,
+                    list_id: selectedListId,
                 }
             };
-            const response = await axios.get('http://localhost:8000/api/pokemon-cards/', params);
-            setCards(response.data.data);
-            setTotalPages(response.data.total_pages);
+            let url
+            if (isInAddMode == null) {
+                url = `http://localhost:8000/api/pokemon-cards/`
+            } else {
+                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/pokemon-cards/`;
+            }
+            const response = await axios.get(url, params);
+            if (Array.isArray(response.data.data)) {
+                setCards(response.data.data);
+                setTotalPages(response.data.total_pages);
+            } else {
+                console.error('Unexpected response format');
+            }
             setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
@@ -39,7 +50,10 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ onAddCard, selectedListId }
 
     useEffect(() => {
         fetchData();
-    }, []);
+        if (selectedListId) {
+            fetchData();
+        }
+    }, [selectedListId]);
 
     const handleAddCard = async (card: CardData) => {
         if (selectedListId) {
@@ -116,7 +130,7 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ onAddCard, selectedListId }
             />
             <Button variant="contained" onClick={handleSearchClick}>Search</Button>
             <Grid container spacing={2}>
-                {cards.map((card, index) => (
+                {Array.isArray(cards) && cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                         <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>
                             <CardMedia
@@ -129,9 +143,11 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ onAddCard, selectedListId }
                                 {card.name}
                             </Typography>
                             <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
-                                <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ m: 1 }}>
-                                    Add
-                                </Button>
+                                {isInAddMode && (
+                                    <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ m: 1 }}>
+                                        Add
+                                    </Button>
+                                )}
                                 <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ m: 1 }}>
                                     Info
                                 </Button>

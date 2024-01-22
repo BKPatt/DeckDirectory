@@ -1,4 +1,5 @@
 type LorcanaCardData = {
+    id: number
     Artist: string;
     Set_Name: string;
     Set_Num: number;

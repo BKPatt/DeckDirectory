@@ -1,4 +1,4 @@
-import React, { Component, useEffect } from 'react';
+import React, { Component } from 'react';
 import {
     TextField,
     Button,
@@ -53,6 +53,7 @@ class Lists extends Component<{}, ListsState> {
             deleteDialogOpen: false,
             listToDelete: null,
             addCardsDialogOpen: false,
+            isInAddMode: true,
         };
     }
 
@@ -108,8 +109,6 @@ class Lists extends Component<{}, ListsState> {
             .then(response => response.json())
             .then(data => this.setState({
                 lists: data.map((list: CardList) => ({ ...list }))
-            }, () => {
-                console.log(this.state.lists);
             }));
     };
 
@@ -117,18 +116,21 @@ class Lists extends Component<{}, ListsState> {
         const card = this.convertCardDataToCard(cardData, 'Pokemon');
         const { selectedList, lists } = this.state;
 
+        console.log("Added")
+
         if (selectedList) {
             const updatedList = {
                 ...selectedList,
                 cards: [...(selectedList.cards ?? []), card]
             };
+
             this.setState({
                 lists: lists.map(list => list.id === selectedList.id ? updatedList : list),
                 selectedList: updatedList
+            }, () => {
+                this.fetchLists();
             });
-            console.log(selectedList.cards)
         }
-        this.fetchLists();
     };
 
     componentDidMount() {
@@ -151,11 +153,12 @@ class Lists extends Component<{}, ListsState> {
     };
 
     handleAddCards = (list: CardList) => {
-        this.setState({ addCardsDialogOpen: true, selectedList: list });
+        this.setState({ addCardsDialogOpen: true, selectedList: list, isInAddMode: true });
     };
 
     closeAddCardDialog = () => {
-        this.setState({ addCardsDialogOpen: false });
+        this.fetchLists()
+        this.setState({ addCardsDialogOpen: false, isInAddMode: false });
     };
 
     handleEditList = (updatedList: CardList) => {
@@ -189,6 +192,7 @@ class Lists extends Component<{}, ListsState> {
 
     cancelDelete = () => {
         this.setState({ deleteDialogOpen: false, listToDelete: null });
+        this.fetchLists()
     };
 
     openDialogWithList = (list: CardList) => {
@@ -236,6 +240,9 @@ class Lists extends Component<{}, ListsState> {
                     <TableRow
                         key={list.id}
                         sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                        onClick={() => {
+                            this.openDialogWithList(list)
+                        }}
                     >
                         <TableCell component="th" scope="row">
                             {list.name}
@@ -246,10 +253,24 @@ class Lists extends Component<{}, ListsState> {
                         <TableCell>${list.market_value}</TableCell>
                         <TableCell>{list.type}</TableCell>
                         <TableCell>
-                            <Button variant="contained" onClick={() => this.handleAddCards(list)}>
+                            <Button
+                                variant="contained"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    this.setState({ isInAddMode: true });
+                                    this.handleAddCards(list)
+                                }}
+                            >
                                 Add Cards
                             </Button>
-                            <Button variant="contained" onClick={() => this.handleDeleteList(list)} sx={{ ml: 2 }}>
+                            <Button
+                                variant="contained"
+                                sx={{ ml: 2 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    this.handleDeleteList(list)
+                                }}
+                            >
                                 Delete List
                             </Button>
                         </TableCell>
@@ -266,18 +287,24 @@ class Lists extends Component<{}, ListsState> {
         let addCardsDialogContent;
         switch (this.state.selectedList?.type) {
             case 'Pokemon':
-                addCardsDialogContent = this.state.addCardsDialogOpen
-                    ? <PokemonCards onAddCard={this.handleAddPokemonCardToList} selectedListId={selectedList?.id} />
-                    : <PokemonCards />;
+                addCardsDialogContent = (
+                    <PokemonCards selectedListId={selectedList?.id} isInAddMode={true} />
+                );
                 break;
             case 'MTG':
-                addCardsDialogContent = <MTGCards />;
+                addCardsDialogContent = (
+                    <MTGCards selectedListId={selectedList?.id} isInAddMode={true} />
+                );
                 break;
             case 'Yu-Gi-Oh!':
-                addCardsDialogContent = <YugiohCards />;
+                addCardsDialogContent = (
+                    <YugiohCards selectedListId={selectedList?.id} isInAddMode={true} />
+                );
                 break;
             case 'Lorcana':
-                addCardsDialogContent = <LorcanaCards />;
+                addCardsDialogContent = (
+                    <LorcanaCards selectedListId={selectedList?.id} isInAddMode={true} />
+                );
                 break;
             case 'Baseball':
                 addCardsDialogContent = <BaseballCards />;

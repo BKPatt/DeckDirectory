@@ -2,6 +2,7 @@ import Card from "./Card";
 import CardType from "./CardType";
 
 type CardList = {
+    cardCount: number;
     id: string;
     created_by: string;
     created_on: string;

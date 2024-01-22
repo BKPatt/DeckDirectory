@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Card, CardMedia, Tabs, Tab, List, ListItem, Divider } from '@mui/material';
+import { Box, Typography, Card, CardMedia, Tabs, Tab, List, ListItem, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
 import { CardData } from './CardData';
 import colorlessEnergy from '../../assets/energies/colorlessEnergy.png';
 import darknessEnergy from '../../assets/energies/darknessEnergy.png';
@@ -19,9 +19,14 @@ type CardInfoProps = {
 const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
     const [selectedTab, setSelectedTab] = useState(0);
     const isPokemonCard = card.supertype === "Pokémon";
+    const [dropdownValue, setDropdownValue] = useState('');
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setSelectedTab(newValue);
+    };
+
+    const handleDropdownChange = (event: SelectChangeEvent) => {
+        setDropdownValue(event.target.value as string);
     };
 
     type EnergyImages = {
@@ -83,7 +88,7 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
                     >
                         <Tab label="Details" />
                         <Tab label="Attacks" />
-                        <Tab label="Legalities" />
+                        <Tab label="Prices" />
                     </Tabs>
                 )}
 
@@ -157,14 +162,31 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
 
                 {selectedTab === 2 && (
                     <Box>
-                        <Typography variant="subtitle2" marginBottom="15px">
-                            <strong>Legalities</strong>:
-                        </Typography>
-                        {Object.entries(card.legalities).map(([format, status], index) => (
-                            <Typography key={index} variant="body2">
-                                {format}: {status}
-                            </Typography>
-                        ))}
+                        <FormControl fullWidth>
+                            <InputLabel id="select-label">Card Type</InputLabel>
+                            <Select
+                                labelId="select-label"
+                                id="simple-select"
+                                value={dropdownValue}
+                                label="Card Type"
+                                onChange={handleDropdownChange}
+                            >
+                                <MenuItem value={'Normal'}>Normal</MenuItem>
+                                <MenuItem value={'Reverse Holo'}>Reverse Holo</MenuItem>
+                            </Select>
+                        </FormControl>
+                        {dropdownValue == 'Normal' && <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                            {card.cardmarket?.prices.averageSellPrice && renderProperty('Average Sell Price', <Typography>{card.cardmarket.prices.averageSellPrice}</Typography>)}
+                            {card.cardmarket?.prices.avg1 && renderProperty('Average Today', <Typography>{card.cardmarket.prices.avg1}</Typography>)}
+                            {card.cardmarket?.prices.avg7 && renderProperty('Average This Week', <Typography>{card.cardmarket.prices.avg7}</Typography>)}
+                            {card.cardmarket?.prices.avg30 && renderProperty('Average This Month', <Typography>{card.cardmarket.prices.avg30}</Typography>)}
+                        </Box>}
+                        {dropdownValue == 'Reverse Holo' && <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                            {card.cardmarket?.prices.reverseHoloSell && renderProperty('Average Sell Price', <Typography>{card.cardmarket.prices.reverseHoloSell}</Typography>)}
+                            {card.cardmarket?.prices.reverseHoloAvg1 && renderProperty('Average Today', <Typography>{card.cardmarket.prices.reverseHoloAvg1}</Typography>)}
+                            {card.cardmarket?.prices.reverseHoloAvg7 && renderProperty('Average This Week', <Typography>{card.cardmarket.prices.reverseHoloAvg7}</Typography>)}
+                            {card.cardmarket?.prices.reverseHoloAvg30 && renderProperty('Average This Month', <Typography>{card.cardmarket.prices.reverseHoloAvg30}</Typography>)}
+                        </Box>}
                     </Box>
                 )}
             </Box>

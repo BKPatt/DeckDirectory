@@ -4,7 +4,12 @@ import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button }
 import { useNavigate } from 'react-router-dom';
 import LorcanaCardData from './LorcanaCardData';
 
-const LorcanaCards = () => {
+type LorcanaCardsProps = {
+    selectedListId?: string;
+    isInAddMode?: boolean;
+};
+
+const LorcanaCards: React.FC<LorcanaCardsProps> = ({ selectedListId, isInAddMode }) => {
     const [cards, setCards] = useState<LorcanaCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -12,32 +17,49 @@ const LorcanaCards = () => {
     const navigate = useNavigate();
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
+    const [selectedCard, setSelectedCard] = useState<LorcanaCardData | null>(null);
+    const [showData, setShowData] = useState(false);
 
-    const fetchData = async (page = currentPage) => {
+    const fetchData = async (page = 1) => {
         try {
-            let url = `http://localhost:8000/api/lorcana-cards/?page=${page}`;
-            if (search) {
-                url += `&search=${encodeURIComponent(search)}`;
+            const params = {
+                params: {
+                    search: search,
+                    page: page,
+                    page_size: cardsPerPage,
+                    list_id: selectedListId,
+                }
+            };
+            let url
+            if (isInAddMode == null) {
+                url = `http://localhost:8000/api/lorcana-cards/`
+            } else {
+                url = !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/` : `http://localhost:8000/api/lorcana-cards/`;
             }
-
-            const response = await axios.get(url);
-            setCards(response.data.data.map((card: any) => ({
-                Artist: card.artist,
-                Set_Name: card.set_name,
-                Set_Num: card.set_num,
-                Color: card.color,
-                Image: card.image,
-                Cost: card.cost,
-                Inkable: card.inkable,
-                Name: card.name,
-                Type: card.type,
-                Rarity: card.rarity,
-                Flavor_Text: card.flavor_text,
-                Card_Num: card.card_num,
-                Body_Text: card.body_text,
-                Set_ID: card.set_id,
-            })));
-            setTotalPages(response.data.total_pages);
+            const response = await axios.get(url, params);
+            if (Array.isArray(response.data.data)) {
+                setCards(response.data.data.map((card: any) => ({
+                    id: card.id,
+                    Artist: card.artist,
+                    Set_Name: card.set_name,
+                    Set_Num: card.set_num,
+                    Color: card.color,
+                    Image: card.image,
+                    Cost: card.cost,
+                    Inkable: card.inkable,
+                    Name: card.name,
+                    Type: card.type,
+                    Rarity: card.rarity,
+                    Flavor_Text: card.flavor_text,
+                    Card_Num: card.card_num,
+                    Body_Text: card.body_text,
+                    Set_ID: card.set_id,
+                })));
+                setTotalPages(response.data.total_pages);
+            } else {
+                console.error('Unexpected response format');
+            }
+            setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
         }
@@ -45,10 +67,31 @@ const LorcanaCards = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+        if (selectedListId) {
+            fetchData();
+        }
+    }, [selectedListId]);
+
+    const handleAddCard = async (card: LorcanaCardData) => {
+        if (selectedListId) {
+            try {
+                const response = await axios.post('http://localhost:8000/api/add-card-to-list/', {
+                    list_id: selectedListId,
+                    card_id: card.id,
+                    card_type: 'yugioh'
+                });
+
+                if (response.status === 200) {
+                    console.log('Card added to list successfully');
+                }
+            } catch (error) {
+                console.error('Error adding card to list:', error);
+            }
+        }
+    };
 
     const handleSearchClick = () => {
-        fetchData();
+        fetchData(1);
         setCurrentPage(1);
     };
 
@@ -57,8 +100,14 @@ const LorcanaCards = () => {
         fetchData(value);
     };
 
-    const handleCardClick = (cardName: string) => {
-        navigate(`/cards/lorcana/${encodeURIComponent(cardName)}`);
+    const handleCardInfo = (card: LorcanaCardData) => {
+        setSelectedCard(card);
+        setShowData(true);
+    };
+
+    const handleCloseDialog = () => {
+        setShowData(false);
+        setSelectedCard(null);
     };
 
     return (
@@ -83,7 +132,7 @@ const LorcanaCards = () => {
                 {cards.map((card, index) => {
                     return (
                         <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                            <Card onClick={() => handleCardClick(card.Name)}>
+                            <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>
                                 <CardMedia
                                     component="img"
                                     height="auto"
@@ -93,6 +142,16 @@ const LorcanaCards = () => {
                                 <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
                                     {card.Name}
                                 </Typography>
+                                <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
+                                    {isInAddMode && (
+                                        <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ m: 1 }}>
+                                            Add
+                                        </Button>
+                                    )}
+                                    <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ m: 1 }}>
+                                        Info
+                                    </Button>
+                                </Box>
                             </Card>
                         </Grid>
                     );
