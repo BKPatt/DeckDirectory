@@ -37,6 +37,7 @@ import FootballCards from './Cards/FootballCards';
 import BasketballCards from './Cards/BasketballCards';
 import HockeyCards from './Cards/HockeyCards';
 import axios from 'axios';
+import Pagination from '@mui/material/Pagination';
 
 const Lists = () => {
     const { listData, updateListData } = useList();
@@ -48,7 +49,40 @@ const Lists = () => {
     const [listToDelete, setListToDelete] = useState<CardList | null>(null);
     const [addCardsDialogOpen, setAddCardsDialogOpen] = useState<boolean>(false);
     const [isInAddMode, setIsInAddMode] = useState<boolean>(true);
-    const prevListDataRef = useRef<CardList[] | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const clickableStyle = { cursor: 'pointer' };
+    const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
+    const [paginationState, setPaginationState] = useState<Record<CardType, { currentPage: number, totalPages: number }>>({
+        'Pokemon': { currentPage: 1, totalPages: 0 },
+        'MTG': { currentPage: 1, totalPages: 0 },
+        'Yu-Gi-Oh!': { currentPage: 1, totalPages: 0 },
+        'Lorcana': { currentPage: 1, totalPages: 0 },
+        'Baseball': { currentPage: 1, totalPages: 0 },
+        'Football': { currentPage: 1, totalPages: 0 },
+        'Basketball': { currentPage: 1, totalPages: 0 },
+        'Hockey': { currentPage: 1, totalPages: 0 },
+    });
+    const [listDataByType, setListDataByType] = useState<Record<CardType, CardList[]>>({
+        'Pokemon': [],
+        'MTG': [],
+        'Yu-Gi-Oh!': [],
+        'Lorcana': [],
+        'Baseball': [],
+        'Football': [],
+        'Basketball': [],
+        'Hockey': [],
+    });
+    type SortableFields = keyof Pick<CardList, 'name' | 'created_by' | 'created_on' | 'market_value'> | 'num_cards';
+    const [sortStates, setSortStates] = useState<Record<CardType, { field: SortableFields, direction: 'asc' | 'desc' }>>({
+        'Pokemon': { field: 'name', direction: 'asc' },
+        'MTG': { field: 'name', direction: 'asc' },
+        'Yu-Gi-Oh!': { field: 'name', direction: 'asc' },
+        'Lorcana': { field: 'name', direction: 'asc' },
+        'Baseball': { field: 'name', direction: 'asc' },
+        'Football': { field: 'name', direction: 'asc' },
+        'Basketball': { field: 'name', direction: 'asc' },
+        'Hockey': { field: 'name', direction: 'asc' },
+    });
 
     const createNewList = () => {
         if (!newListName.trim()) {
@@ -79,26 +113,46 @@ const Lists = () => {
                 const updatedListData = [...listData, data];
                 updateListData(updatedListData);
                 setNewListName('');
+                fetchListsForType(newListType);
             })
             .catch(error => {
                 console.error('Error:', error);
             });
     };
 
-    const fetchLists = () => {
-        console.log('fetch')
-        fetch('http://localhost:8000/api/cardlists/')
-            .then(response => response.json())
-            .then(data => {
-                updateListData(data.map((list: CardList) => ({ ...list })));
+    const fetchListsForType = (type: CardType, page = 1) => {
+        const sortField = sortStates[type].field;
+        const sortDirection = sortStates[type].direction;
+        axios.get(`http://localhost:8000/api/cardlists/?type=${type}&page=${page}&sort_field=${sortField}&sort_direction=${sortDirection}`)
+            .then(response => {
+                updateListData(response.data.results);
+                setListDataByType(prevData => ({
+                    ...prevData,
+                    [type]: response.data.results,
+                }));
+                setPaginationState(prevState => ({
+                    ...prevState,
+                    [type]: {
+                        currentPage: page,
+                        totalPages: Math.ceil(response.data.count / 10),
+                    },
+                }));
+            })
+            .catch(error => {
+                console.error('Error:', error);
             });
     };
 
+    const fetchAllLists = () => {
+        cardTypes.forEach(type => {
+            const currentPage = paginationState[type].currentPage;
+            fetchListsForType(type, currentPage);
+        });
+    };
+
     useEffect(() => {
-        if (prevListDataRef.current !== listData) {
-            prevListDataRef.current = listData;
-        }
-    }, [listData]);
+        fetchAllLists();
+    }, [currentPage]);
 
     const handleListNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setNewListName(e.target.value);
@@ -115,13 +169,20 @@ const Lists = () => {
     };
 
     const closeAddCardDialog = () => {
-        fetchLists();
+        fetchAllLists();
         setAddCardsDialogOpen(false);
         setIsInAddMode(false);
     };
 
-    const handleEditList = (updatedList: CardList) => {
-        updateListData(listData.map(list => list.id === updatedList.id ? updatedList : list));
+    const handlePageChange = (type: CardType, page: number) => {
+        setPaginationState(prevState => ({
+            ...prevState,
+            [type]: {
+                ...prevState[type],
+                currentPage: page,
+            },
+        }));
+        fetchListsForType(type, page);
     };
 
     const handleDeleteList = (listToDelete: CardList | null) => {
@@ -160,7 +221,7 @@ const Lists = () => {
     const cancelDelete = () => {
         setDeleteDialogOpen(false);
         setListToDelete(null);
-        fetchLists();
+        fetchAllLists();
     };
 
     const openDialogWithList = (list: CardList) => {
@@ -170,19 +231,78 @@ const Lists = () => {
     };
 
     const closeDialog = () => {
-        fetchLists();
+        fetchAllLists();
         setDialogOpen(false);
         setSelectedList(null);
     };
 
-    const renderListHeader = (): JSX.Element => (
+    const renderPagination = (type: CardType): JSX.Element => (
+        <Pagination
+            count={paginationState[type].totalPages}
+            page={paginationState[type].currentPage}
+            onChange={(event, page) => handlePageChange(type, page)}
+        />
+    );
+
+    const renderSortIndicator = (type: CardType, field: string) => {
+        const state = sortStates[type];
+        if (state.field !== field) return null;
+        return state.direction === 'asc' ? '↑' : '↓';
+    };
+
+    const sortList = (list: CardList[], sortState: { field: SortableFields, direction: 'asc' | 'desc' }): CardList[] => {
+        return list.sort((a, b) => {
+            let aValue = sortState.field === 'num_cards' ? a.cards.length : a[sortState.field];
+            let bValue = sortState.field === 'num_cards' ? b.cards.length : b[sortState.field];
+
+            if (sortState.field === 'created_on') {
+                aValue = new Date(aValue).getTime();
+                bValue = new Date(bValue).getTime();
+            }
+
+            if (aValue < bValue) {
+                return sortState.direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortState.direction === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+    };
+
+    const handleSortChange = (type: CardType, field: SortableFields) => {
+        setSortStates(prev => {
+            const isCurrentField = prev[type].field === field;
+            const isAscending = prev[type].direction === 'asc';
+
+            if (isCurrentField && isAscending) {
+                return { ...prev, [type]: { field, direction: 'desc' } };
+            } else if (isCurrentField && !isAscending) {
+                return { ...prev, [type]: { field: '', direction: 'asc' } };
+            } else {
+                return { ...prev, [type]: { field, direction: 'asc' } };
+            }
+        });
+    };
+
+    const renderListHeader = (type: CardType): JSX.Element => (
         <TableHead>
             <TableRow>
-                <TableCell>List Name</TableCell>
-                <TableCell>Created By</TableCell>
-                <TableCell>Created On</TableCell>
-                <TableCell># of Cards</TableCell>
-                <TableCell>Full List Market Value</TableCell>
+                <TableCell onClick={() => handleSortChange(type, 'name')} style={clickableStyle}>
+                    List Name {renderSortIndicator(type, 'name')}
+                </TableCell>
+                <TableCell onClick={() => handleSortChange(type, 'created_by')} style={clickableStyle}>
+                    Created By {renderSortIndicator(type, 'created_by')}
+                </TableCell>
+                <TableCell onClick={() => handleSortChange(type, 'created_on')} style={clickableStyle}>
+                    Created On {renderSortIndicator(type, 'created_on')}
+                </TableCell>
+                <TableCell onClick={() => handleSortChange(type, 'num_cards')} style={clickableStyle}>
+                    # of Cards {renderSortIndicator(type, 'num_cards')}
+                </TableCell>
+                <TableCell onClick={() => handleSortChange(type, 'market_value')} style={clickableStyle}>
+                    Full List Market Value {renderSortIndicator(type, 'market_value')}
+                </TableCell>
                 <TableCell>List Type</TableCell>
                 <TableCell />
             </TableRow>
@@ -190,29 +310,31 @@ const Lists = () => {
     );
 
     const renderListItems = (type: CardType): JSX.Element => {
+        const sortedLists = sortList(listDataByType[type] || [], sortStates[type]);
+
         return (
             <TableBody>
-                {listData.filter(list => list.type === type).map((list) => (
+                {sortedLists.map((list) => (
                     <TableRow
                         key={list.id}
                         sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                         onClick={() => openDialogWithList(list)}
                     >
-                        <TableCell component="th" scope="row">
+                        <TableCell component="th" scope="row" style={clickableStyle}>
                             {list.name}
                         </TableCell>
-                        <TableCell>{list.created_by}</TableCell>
-                        <TableCell>{formatDate(list.created_on)}</TableCell>
-                        <TableCell>{(list.cards && (list.cards.length)) || 0}</TableCell>
-                        <TableCell>${list.market_value}</TableCell>
-                        <TableCell>{list.type}</TableCell>
+                        <TableCell style={clickableStyle}>{list.created_by}</TableCell>
+                        <TableCell style={clickableStyle}>{formatDate(list.created_on)}</TableCell>
+                        <TableCell style={clickableStyle}>{(list.cards && list.cards.length) || 0}</TableCell>
+                        <TableCell style={clickableStyle}>${list.market_value}</TableCell>
+                        <TableCell style={clickableStyle}>{list.type}</TableCell>
                         <TableCell>
                             <Button
                                 variant="contained"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsInAddMode(true);
-                                    handleAddCards(list)
+                                    handleAddCards(list);
                                 }}
                             >
                                 Add Cards
@@ -222,7 +344,7 @@ const Lists = () => {
                                 sx={{ ml: 2 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteList(list)
+                                    handleDeleteList(list);
                                 }}
                             >
                                 Delete List
@@ -234,28 +356,26 @@ const Lists = () => {
         );
     };
 
-    const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
-
     let addCardsDialogContent;
     switch (selectedList?.type) {
         case 'Pokemon':
             addCardsDialogContent = (
-                <PokemonCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+                <PokemonCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
             );
             break;
         case 'MTG':
             addCardsDialogContent = (
-                <MTGCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+                <MTGCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
             );
             break;
         case 'Yu-Gi-Oh!':
             addCardsDialogContent = (
-                <YugiohCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+                <YugiohCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
             );
             break;
         case 'Lorcana':
             addCardsDialogContent = (
-                <LorcanaCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+                <LorcanaCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
             );
             break;
         case 'Baseball':
@@ -293,7 +413,6 @@ const Lists = () => {
         </Dialog>
     );
 
-    // Define deleteConfirmationDialog
     const deleteConfirmationDialog = (
         <Dialog
             open={deleteDialogOpen}
@@ -317,7 +436,6 @@ const Lists = () => {
             </DialogActions>
         </Dialog>
     );
-
 
     return (
         <Box sx={{ width: 'auto', padding: 3 }}>
@@ -362,7 +480,7 @@ const Lists = () => {
 
             <Typography variant="h5" gutterBottom component="div" sx={{ mt: 4 }} />
             {cardTypes.map((type) => (
-                <Accordion key={type}>
+                <Accordion key={type} onChange={() => fetchListsForType(type, paginationState[type].currentPage)}>
                     <AccordionSummary
                         expandIcon={<ExpandMoreIcon />}
                         aria-controls="panel1a-content"
@@ -372,9 +490,10 @@ const Lists = () => {
                     </AccordionSummary>
                     <AccordionDetails>
                         <TableContainer component={Paper}>
-                            {renderListHeader()}
+                            {renderListHeader(type)}
                             {renderListItems(type)}
                         </TableContainer>
+                        {renderPagination(type)}
                     </AccordionDetails>
                 </Accordion>
             ))}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, Typography } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
 import PokemonCards from '../Cards/Pokemon/PokemonCards';
 import MTGCards from '../Cards/MTG/MTGCards';
 import YugiohCards from '../Cards/Yugioh/YugiohCards';
@@ -9,8 +9,7 @@ import FootballCards from '../Cards/FootballCards';
 import BasketballCards from '../Cards/BasketballCards';
 import HockeyCards from '../Cards/HockeyCards';
 import CardType from './CardType';
-import { CardList } from './CardList';
-import formatDate from '../helpers/formatDate';
+import { CardList, useList } from './CardList';
 
 interface ListDialogProps {
     list: CardList | null;
@@ -19,12 +18,33 @@ interface ListDialogProps {
 
 const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [currentList, setCurrentList] = useState<CardList | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedTitle, setEditedTitle] = useState('');
+    const { updateListInDatabase } = useList();
 
     useEffect(() => {
         if (list) {
             setCurrentList(list);
+            setEditedTitle(list.name);
         }
     }, [list]);
+
+    const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setEditedTitle(event.target.value);
+    };
+
+    const handleKeyDown = async (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            setIsEditing(false);
+
+            if (currentList) {
+                const updatedList = { ...currentList, name: editedTitle };
+                await updateListInDatabase(currentList.id, updatedList);
+                setCurrentList(updatedList);
+            }
+        }
+    };
 
     const renderCardContent = (listType: CardType) => {
         switch (listType) {
@@ -51,8 +71,19 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
 
     return (
         <Dialog open={Boolean(currentList)} onClose={onClose} fullWidth maxWidth="lg">
-            <DialogTitle textAlign="center" marginBottom={'15px'}>
-                {currentList ? currentList.name : ''}
+            <DialogTitle textAlign="center" marginBottom={'15px'} onClick={() => setIsEditing(true)}>
+                {isEditing ? (
+                    <TextField
+                        fullWidth
+                        autoFocus
+                        value={editedTitle}
+                        onChange={handleTitleChange}
+                        onKeyDown={handleKeyDown}
+                        onBlur={() => setIsEditing(false)}
+                    />
+                ) : (
+                    currentList ? currentList.name : ''
+                )}
             </DialogTitle>
             <DialogContent>
                 {currentList && (

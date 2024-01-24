@@ -6,17 +6,59 @@ from .serializers import CardListSerializer, ListCardSerializer
 from decouple import Config, RepositoryEnv
 import logging
 from rest_framework.decorators import api_view
+from django.db import transaction
 from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env_file = BASE_DIR / '.env'
 config = Config(RepositoryEnv(env_file))
 logger = logging.getLogger(__name__)
 
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class CardListViewSet(viewsets.ModelViewSet):
-    queryset = CardList.objects.all()
+    queryset = CardList.objects.all().order_by('created_on')
     serializer_class = CardListSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        queryset = CardList.objects.all()
+        card_type = self.request.query_params.get('type', None)
+
+        if card_type is not None:
+            if card_type.lower() == 'pokemon':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'yu-gi-oh!':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'mtg':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'lorcana':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'baseball':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'football':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'basketball':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'hockey':
+                queryset = queryset.filter(type=card_type)
+
+        sort_field = self.request.query_params.get('sort_field', 'created_on')
+        sort_direction = self.request.query_params.get('sort_direction', 'asc')
+
+        if sort_field == 'cards':
+            queryset = queryset.annotate(cards=Count('list_cards'))
+            sort_field = '-cards' if sort_direction == 'desc' else 'cards'
+        elif sort_direction == 'desc':
+            sort_field = '-' + sort_field
+
+        return queryset.order_by(sort_field)
 
 @api_view(['POST'])
 def add_card_to_list(request):
@@ -159,4 +201,50 @@ def get_list_by_id(request, list_id):
         return Response({'error': 'CardList not found'}, status=404)
     except Exception as e:
         logger.error(f"Error retrieving list by ID: {e}")
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+def update_list(request, list_id):
+    try:
+        try:
+            card_list = CardList.objects.get(id=list_id)
+        except CardList.DoesNotExist:
+            card_list = CardList(id=list_id)
+            card_list.save()
+            
+        new_name = request.data.get('name')
+        new_type = request.data.get('type')
+        if new_name:
+            card_list.name = new_name
+        if new_type:
+            card_list.type = new_type
+        add_cards = request.data.get('add_cards')
+        remove_cards = request.data.get('remove_cards')
+        with transaction.atomic():
+            if add_cards:
+                for card_data in add_cards:
+                    card_id = card_data.get('card_id')
+                    card_type = card_data.get('card_type')
+                    if card_type == 'pokemon':
+                        card = PokemonCardData.objects.get(id=card_id)
+                        list_card = ListCard(card_list=card_list, pokemon_card=card)
+                    elif card_type == 'yugioh':
+                        card = YugiohCard.objects.get(id=card_id)
+                        list_card = ListCard(card_list=card_list, yugioh_card=card)
+                    elif card_type == 'mtg':
+                        card = MTGCardsData.objects.get(id=card_id)
+                        list_card = ListCard(card_list=card_list, mtg_card=card)
+                    elif card_type == 'lorcana':
+                        card = LorcanaCardData.objects.get(id=card_id)
+                        list_card = ListCard(card_list=card_list, lorcana_card=card)
+                    list_card.save()
+            if remove_cards:
+                for card_id in remove_cards:
+                    ListCard.objects.filter(card_list=card_list, id=card_id).delete()
+            card_list.save()
+        return Response({'message': 'List updated successfully'})
+    except CardList.DoesNotExist:
+        return Response({'error': 'CardList not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating list: {e}")
         return Response({'error': str(e)}, status=500)

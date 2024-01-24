@@ -17,6 +17,9 @@ class CardList(models.Model):
     mtg_cards = models.ForeignKey
     lorcana_cards = models.ForeignKey
 
+    def __str__(self):
+        return f'ID: {self.id}, Created by: {self.created_by}, Created on: {self.created_on}, Name: {self.name}, Type: {self.type}, Market Value: {self.market_value}'
+
 
 
 ####################################################

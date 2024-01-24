@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CardListViewSet, add_card_to_list, update_card_quantity, delete_card_from_list, get_list_by_id
+from .views import CardListViewSet, add_card_to_list, update_card_quantity, delete_card_from_list, get_list_by_id, update_list
 from .viewsOrganized.pokemon import get_pokemon_cards_by_list, pokemon_cards_api
 from .viewsOrganized.ebay import fetch_ebay_data
 from .viewsOrganized.yugioh import fetch_yugioh_cards, get_yugioh_cards_by_list
@@ -25,4 +25,5 @@ urlpatterns = [
     path('update-card-quantity/', update_card_quantity, name='update-card-quantity'),
     path('delete-card-from-list/', delete_card_from_list, name='delete-card-from-list'),
     path('get-list-by-id/<int:list_id>/', get_list_by_id, name='get-list-by-id'),
+    path('card-lists/update/<int:list_id>/', update_list, name='update-list'),
 ]
