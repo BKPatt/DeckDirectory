@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     TextField,
     Button,
@@ -24,10 +24,8 @@ import {
     TableContainer,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ListDialog from './Types/ListDialog'
-import ListItemComponent from './Types/ListItemComponent';
-import ListsState from './Types/ListsState';
-import CardList from './Types/CardList';
+import ListDialog from './Types/ListDialog';
+import { CardList, useList } from './Types/CardList';
 import CardType from './Types/CardType';
 import formatDate from './helpers/formatDate';
 import PokemonCards from './Cards/Pokemon/PokemonCards';
@@ -38,27 +36,21 @@ import BaseballCards from './Cards/BaseballCards';
 import FootballCards from './Cards/FootballCards';
 import BasketballCards from './Cards/BasketballCards';
 import HockeyCards from './Cards/HockeyCards';
-import { CardData } from './Cards/Pokemon/CardData';
-import Card from './Types/Card';
+import axios from 'axios';
 
-class Lists extends Component<{}, ListsState> {
-    constructor(props: {}) {
-        super(props);
-        this.state = {
-            lists: [],
-            newListName: '',
-            newListType: 'Pokemon',
-            dialogOpen: false,
-            selectedList: null,
-            deleteDialogOpen: false,
-            listToDelete: null,
-            addCardsDialogOpen: false,
-            isInAddMode: true,
-        };
-    }
+const Lists = () => {
+    const { listData, updateListData } = useList();
+    const [newListName, setNewListName] = useState<string>('');
+    const [newListType, setNewListType] = useState<CardType>('Pokemon');
+    const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+    const [selectedList, setSelectedList] = useState<CardList | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+    const [listToDelete, setListToDelete] = useState<CardList | null>(null);
+    const [addCardsDialogOpen, setAddCardsDialogOpen] = useState<boolean>(false);
+    const [isInAddMode, setIsInAddMode] = useState<boolean>(true);
+    const prevListDataRef = useRef<CardList[] | null>(null);
 
-    createNewList = () => {
-        const { newListName, newListType } = this.state;
+    const createNewList = () => {
         if (!newListName.trim()) {
             alert('Please enter a name for the list.');
             return;
@@ -84,86 +76,68 @@ class Lists extends Component<{}, ListsState> {
                 return response.json();
             })
             .then(data => {
-                this.setState(prevState => ({
-                    lists: [...prevState.lists, {
-                        ...data,
-                    }],
-                    newListName: ''
-                }));
+                const updatedListData = [...listData, data];
+                updateListData(updatedListData);
+                setNewListName('');
             })
             .catch(error => {
                 console.error('Error:', error);
             });
-    }
-
-    convertCardDataToCard = (cardData: CardData, cardType: CardType): Card => {
-        return {
-            id: cardData.id,
-            name: cardData.name,
-            type: cardType
-        };
     };
 
-    fetchLists = () => {
+    const fetchLists = () => {
+        console.log('fetch')
         fetch('http://localhost:8000/api/cardlists/')
             .then(response => response.json())
             .then(data => {
-                this.setState({
-                    lists: data.map((list: CardList) => ({ ...list }))
-                });
+                updateListData(data.map((list: CardList) => ({ ...list })));
             });
     };
 
-    componentDidMount() {
-        fetch('http://localhost:8000/api/cardlists/')
-            .then(response => response.json())
-            .then(data => this.setState({
-                lists: data.map((list: CardList) => ({
-                    ...list,
-                }))
-            }));
-        this.fetchLists();
+    useEffect(() => {
+        if (prevListDataRef.current !== listData) {
+            prevListDataRef.current = listData;
+        }
+    }, [listData]);
+
+    const handleListNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setNewListName(e.target.value);
     }
 
-    handleListNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        this.setState({ newListName: e.target.value });
-    }
-
-    handleListTypeChange = (event: SelectChangeEvent<CardType>) => {
-        this.setState({ newListType: event.target.value as CardType });
+    const handleListTypeChange = (event: SelectChangeEvent<CardType>) => {
+        setNewListType(event.target.value as CardType);
     };
 
-    handleAddCards = (list: CardList) => {
-        this.setState({ addCardsDialogOpen: true, selectedList: list, isInAddMode: true });
+    const handleAddCards = (list: CardList) => {
+        setAddCardsDialogOpen(true);
+        setSelectedList(list);
+        setIsInAddMode(true);
     };
 
-    closeAddCardDialog = () => {
-        this.fetchLists()
-        this.setState({ addCardsDialogOpen: false, isInAddMode: false });
+    const closeAddCardDialog = () => {
+        fetchLists();
+        setAddCardsDialogOpen(false);
+        setIsInAddMode(false);
     };
 
-    handleEditList = (updatedList: CardList) => {
-        this.setState(prevState => ({
-            lists: prevState.lists.map(list => list.id === updatedList.id ? updatedList : list)
-        }));
+    const handleEditList = (updatedList: CardList) => {
+        updateListData(listData.map(list => list.id === updatedList.id ? updatedList : list));
     };
 
-    handleDeleteList = (listToDelete: CardList | null) => {
-        this.setState({ deleteDialogOpen: true, listToDelete });
+    const handleDeleteList = (listToDelete: CardList | null) => {
+        setDeleteDialogOpen(true);
+        setListToDelete(listToDelete);
     };
 
-    confirmDelete = () => {
-        const { listToDelete, lists } = this.state;
+    const confirmDelete = () => {
         if (listToDelete) {
             fetch(`http://localhost:8000/api/cardlists/${listToDelete.id}/`, {
                 method: 'DELETE',
             })
                 .then(() => {
-                    this.setState({
-                        lists: lists.filter(list => list.id !== listToDelete.id),
-                        deleteDialogOpen: false,
-                        listToDelete: null
-                    });
+                    updateListData(listData.filter(list => list.id !== listToDelete.id));
+                    setDeleteDialogOpen(false);
+                    setListToDelete(null);
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -171,34 +145,37 @@ class Lists extends Component<{}, ListsState> {
         }
     };
 
-    cancelDelete = () => {
-        this.setState({ deleteDialogOpen: false, listToDelete: null });
-        this.fetchLists()
+    const updateListDetails = async (listId: string) => {
+        try {
+            const url = `http://localhost:8000/api/cardlists/${listId}/`;
+            const response = await axios.get(url);
+            if (response.data) {
+                updateListData(listData.map(list => list.id === listId ? response.data : list));
+            }
+        } catch (error) {
+            console.error('Error fetching list details:', error);
+        }
     };
 
-    openDialogWithList = (list: CardList) => {
-        this.setState({ dialogOpen: true, selectedList: list });
+    const cancelDelete = () => {
+        setDeleteDialogOpen(false);
+        setListToDelete(null);
+        fetchLists();
     };
 
-    closeDialog = () => {
-        this.setState({ dialogOpen: false, selectedList: null });
+    const openDialogWithList = (list: CardList) => {
+        setDialogOpen(true);
+        setSelectedList(list);
+        updateListDetails(list.id);
     };
 
-    renderListsByType = (type: CardType) => {
-        const { lists } = this.state;
-        const filteredLists = lists.filter(list => list.type === type);
+    const closeDialog = () => {
+        fetchLists();
+        setDialogOpen(false);
+        setSelectedList(null);
+    };
 
-        return (
-            <Box>
-                <Typography variant="h6">{type}</Typography>
-                {filteredLists.map((list) => (
-                    <ListItemComponent key={list.id} list={list} />
-                ))}
-            </Box>
-        );
-    }
-
-    renderListHeader = (): JSX.Element => (
+    const renderListHeader = (): JSX.Element => (
         <TableHead>
             <TableRow>
                 <TableCell>List Name</TableCell>
@@ -212,18 +189,14 @@ class Lists extends Component<{}, ListsState> {
         </TableHead>
     );
 
-    renderListItems = (type: CardType): JSX.Element => {
-        const { lists } = this.state;
-
+    const renderListItems = (type: CardType): JSX.Element => {
         return (
             <TableBody>
-                {lists.filter(list => list.type === type).map((list) => (
+                {listData.filter(list => list.type === type).map((list) => (
                     <TableRow
                         key={list.id}
                         sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                        onClick={() => {
-                            this.openDialogWithList(list)
-                        }}
+                        onClick={() => openDialogWithList(list)}
                     >
                         <TableCell component="th" scope="row">
                             {list.name}
@@ -238,8 +211,8 @@ class Lists extends Component<{}, ListsState> {
                                 variant="contained"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    this.setState({ isInAddMode: true });
-                                    this.handleAddCards(list)
+                                    setIsInAddMode(true);
+                                    handleAddCards(list)
                                 }}
                             >
                                 Add Cards
@@ -249,7 +222,7 @@ class Lists extends Component<{}, ListsState> {
                                 sx={{ ml: 2 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    this.handleDeleteList(list)
+                                    handleDeleteList(list)
                                 }}
                             >
                                 Delete List
@@ -261,156 +234,155 @@ class Lists extends Component<{}, ListsState> {
         );
     };
 
-    render() {
-        const { newListName, newListType, dialogOpen, selectedList } = this.state;
-        const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
+    const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
 
-        let addCardsDialogContent;
-        switch (this.state.selectedList?.type) {
-            case 'Pokemon':
-                addCardsDialogContent = (
-                    <PokemonCards selectedListId={selectedList?.id} isInAddMode={true} />
-                );
-                break;
-            case 'MTG':
-                addCardsDialogContent = (
-                    <MTGCards selectedListId={selectedList?.id} isInAddMode={true} />
-                );
-                break;
-            case 'Yu-Gi-Oh!':
-                addCardsDialogContent = (
-                    <YugiohCards selectedListId={selectedList?.id} isInAddMode={true} />
-                );
-                break;
-            case 'Lorcana':
-                addCardsDialogContent = (
-                    <LorcanaCards selectedListId={selectedList?.id} isInAddMode={true} />
-                );
-                break;
-            case 'Baseball':
-                addCardsDialogContent = <BaseballCards />;
-                break;
-            case 'Football':
-                addCardsDialogContent = <FootballCards />;
-                break;
-            case 'Basketball':
-                addCardsDialogContent = <BasketballCards />;
-                break;
-            case 'Hockey':
-                addCardsDialogContent = <HockeyCards />;
-                break;
-            default:
-                addCardsDialogContent = <div>Select a card type</div>;
-        }
-
-        const addCardsDialog = (
-            <Dialog
-                open={this.state.addCardsDialogOpen}
-                onClose={this.closeAddCardDialog}
-                fullWidth
-                maxWidth="lg"
-            >
-                <DialogTitle id="add-cards-dialog-title">Add Cards</DialogTitle>
-                <DialogContent>
-                    {addCardsDialogContent}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={this.closeAddCardDialog} color="primary">
-                        Close
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        );
-
-        const deleteConfirmationDialog = (
-            <Dialog
-                open={this.state.deleteDialogOpen}
-                onClose={this.cancelDelete}
-                aria-labelledby="alert-dialog-title"
-                aria-describedby="alert-dialog-description"
-            >
-                <DialogTitle id="alert-dialog-title">{"Confirm Delete"}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="alert-dialog-description">
-                        Are you sure you want to delete this list?
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={this.cancelDelete} color="primary">
-                        Cancel
-                    </Button>
-                    <Button onClick={this.confirmDelete} color="primary" autoFocus>
-                        Confirm
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        );
-
-        return (
-            <Box sx={{ width: 'auto', padding: 3 }}>
-                <Typography variant="h5" gutterBottom component="div">
-                    Create a New List
-                </Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                        <TextField
-                            sx={{ width: '100%' }}
-                            label="List Name"
-                            value={newListName}
-                            onChange={this.handleListNameChange}
-                            margin="normal"
-                        />
-                    </Grid>
-                </Grid>
-                <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={9}>
-                        <Select
-                            fullWidth
-                            value={newListType}
-                            onChange={this.handleListTypeChange}
-                            displayEmpty
-                        >
-                            {cardTypes.map((type, index) => (
-                                <MenuItem key={index} value={type}>{type}</MenuItem>
-                            ))}
-                        </Select>
-                    </Grid>
-                    <Grid item xs={3}>
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            onClick={this.createNewList}
-                            sx={{ height: '55px' }}
-                        >
-                            Create List
-                        </Button>
-                    </Grid>
-                </Grid>
-
-                <Typography variant="h5" gutterBottom component="div" sx={{ mt: 4 }} />
-                {cardTypes.map((type) => (
-                    <Accordion key={type}>
-                        <AccordionSummary
-                            expandIcon={<ExpandMoreIcon />}
-                            aria-controls="panel1a-content"
-                            id="panel1a-header"
-                        >
-                            <Typography>{type} Lists</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <TableContainer component={Paper}>
-                                {this.renderListHeader()}
-                                {this.renderListItems(type)}
-                            </TableContainer>
-                        </AccordionDetails>
-                    </Accordion>
-                ))}
-                {addCardsDialog}
-                {deleteConfirmationDialog}
-                {dialogOpen && <ListDialog list={selectedList} onClose={this.closeDialog} />}
-            </Box>
-        );
+    let addCardsDialogContent;
+    switch (selectedList?.type) {
+        case 'Pokemon':
+            addCardsDialogContent = (
+                <PokemonCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+            );
+            break;
+        case 'MTG':
+            addCardsDialogContent = (
+                <MTGCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+            );
+            break;
+        case 'Yu-Gi-Oh!':
+            addCardsDialogContent = (
+                <YugiohCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+            );
+            break;
+        case 'Lorcana':
+            addCardsDialogContent = (
+                <LorcanaCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchLists} />
+            );
+            break;
+        case 'Baseball':
+            addCardsDialogContent = <BaseballCards />;
+            break;
+        case 'Football':
+            addCardsDialogContent = <FootballCards />;
+            break;
+        case 'Basketball':
+            addCardsDialogContent = <BasketballCards />;
+            break;
+        case 'Hockey':
+            addCardsDialogContent = <HockeyCards />;
+            break;
+        default:
+            addCardsDialogContent = <div>Select a card type</div>;
     }
-}
+
+    const addCardsDialog = (
+        <Dialog
+            open={addCardsDialogOpen}
+            onClose={closeAddCardDialog}
+            fullWidth
+            maxWidth="lg"
+        >
+            <DialogTitle id="add-cards-dialog-title">Add Cards</DialogTitle>
+            <DialogContent>
+                {addCardsDialogContent}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={closeAddCardDialog} color="primary">
+                    Close
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+
+    // Define deleteConfirmationDialog
+    const deleteConfirmationDialog = (
+        <Dialog
+            open={deleteDialogOpen}
+            onClose={cancelDelete}
+            aria-labelledby="alert-dialog-title"
+            aria-describedby="alert-dialog-description"
+        >
+            <DialogTitle id="alert-dialog-title">{"Confirm Delete"}</DialogTitle>
+            <DialogContent>
+                <DialogContentText id="alert-dialog-description">
+                    Are you sure you want to delete this list?
+                </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={cancelDelete} color="primary">
+                    Cancel
+                </Button>
+                <Button onClick={confirmDelete} color="primary" autoFocus>
+                    Confirm
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+
+
+    return (
+        <Box sx={{ width: 'auto', padding: 3 }}>
+            <Typography variant="h5" gutterBottom component="div">
+                Create a New List
+            </Typography>
+            <Grid container spacing={2}>
+                <Grid item xs={12}>
+                    <TextField
+                        sx={{ width: '100%' }}
+                        label="List Name"
+                        value={newListName}
+                        onChange={handleListNameChange}
+                        margin="normal"
+                    />
+                </Grid>
+            </Grid>
+            <Grid container spacing={2} alignItems="center">
+                <Grid item xs={9}>
+                    <Select
+                        fullWidth
+                        value={newListType}
+                        onChange={handleListTypeChange}
+                        displayEmpty
+                    >
+                        {cardTypes.map((type, index) => (
+                            <MenuItem key={index} value={type}>{type}</MenuItem>
+                        ))}
+                    </Select>
+                </Grid>
+                <Grid item xs={3}>
+                    <Button
+                        fullWidth
+                        variant="contained"
+                        onClick={createNewList}
+                        sx={{ height: '55px' }}
+                    >
+                        Create List
+                    </Button>
+                </Grid>
+            </Grid>
+
+            <Typography variant="h5" gutterBottom component="div" sx={{ mt: 4 }} />
+            {cardTypes.map((type) => (
+                <Accordion key={type}>
+                    <AccordionSummary
+                        expandIcon={<ExpandMoreIcon />}
+                        aria-controls="panel1a-content"
+                        id="panel1a-header"
+                    >
+                        <Typography>{type} Lists</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <TableContainer component={Paper}>
+                            {renderListHeader()}
+                            {renderListItems(type)}
+                        </TableContainer>
+                    </AccordionDetails>
+                </Accordion>
+            ))}
+            {addCardsDialog}
+            {deleteConfirmationDialog}
+            {dialogOpen && <ListDialog list={selectedList} onClose={closeDialog} />}
+        </Box>
+    );
+};
 
 export default Lists;

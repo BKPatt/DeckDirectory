@@ -1,7 +1,4 @@
-import CardFace from "./CardFace";
-import RelatedCard from "./RelatedCard";
-
-type MTGCardData = {
+export type MTGCardData = {
     id: string;
     oracle_id: string;
     name: string;
@@ -34,4 +31,27 @@ type MTGCardData = {
     all_parts?: RelatedCard[];
 };
 
-export default MTGCardData;
+export type RelatedCard = {
+    id: string;
+    component: string;
+    name: string;
+    type_line: string;
+    uri: string;
+};
+
+export type CardFace = {
+    name: string;
+    mana_cost: string;
+    type_line: string;
+    oracle_text: string;
+    colors: string[];
+    power: string;
+    toughness: string;
+    artist: string;
+    image_uris: {
+        small: string;
+        normal: string;
+        large: string;
+    };
+};
+

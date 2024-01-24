@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@mui/material';
-import CardList from './CardList';
+import { CardList } from './CardList';
 
 interface ListItemComponentProps {
     list: CardList;

@@ -3,13 +3,14 @@ import axios from 'axios';
 import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { CardData } from './CardData';
 import CardInfo from './PokemonCardInfo';
+import { CardList, useList } from '../../Types/CardList'
 
 type PokemonCardsProps = {
     selectedListId?: string;
     isInAddMode?: boolean;
 };
 
-const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode }) => {
+const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
     const [cards, setCards] = useState<CardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -19,6 +20,7 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
     const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
+    const { listData, updateListData } = useList();
 
     const fetchData = async (page: number = 1) => {
         try {
@@ -35,10 +37,9 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
                     : `http://localhost:8000/api/pokemon-cards/`;
             const response = await axios.get(url, params);
 
-            if (Array.isArray(response.data.data)) {
+            if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: CardData[] = response.data.data;
 
-                // Filter unique cards and count their quantities
                 const uniqueCards: CardData[] = [];
                 const cardCount: { [key: string]: number } = {};
 
@@ -63,12 +64,12 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
         }
     };
 
-
     useEffect(() => {
         fetchData();
         if (selectedListId) {
             fetchData();
         }
+        handleListUpdate();
     }, [selectedListId]);
 
     const handleAddCard = async (card: CardData) => {
@@ -89,28 +90,97 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
         }
     };
 
-    const incrementCardQuantity = (cardId: string) => {
-        setCardQuantities(prevQuantities => ({
-            ...prevQuantities,
-            [cardId]: (prevQuantities[cardId] || 0) + 1
-        }));
+    const handleListUpdate = async () => {
+        const updatedList = await fetchListData();
+        if (updatedList && listData) {
+            const index = listData.findIndex(list => list.id === updatedList.id);
+            if (index !== -1) {
+                const updatedListData = [
+                    ...listData.slice(0, index),
+                    updatedList,
+                    ...listData.slice(index + 1)
+                ];
+                updateListData(updatedListData);
+            }
+        }
     };
 
-    const decrementCardQuantity = (cardId: string) => {
+    const fetchListData = async (): Promise<CardList | null> => {
+        if (!selectedListId) return null;
+        const getListByIdUrl = `http://localhost:8000/api/get-list-by-id/${selectedListId}/`;
+        try {
+            const response = await axios.get(getListByIdUrl);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching updated list data:`, error);
+            return null;
+        }
+    }
+
+    const updateCardQuantity = async (cardId: string, operation: 'increment' | 'decrement') => {
+        const url = `http://localhost:8000/api/update-card-quantity/`;
+
+        try {
+            await axios.post(url, {
+                list_id: selectedListId,
+                card_id: cardId,
+                card_type: 'pokemon',
+                operation
+            });
+            console.log(`Card quantity ${operation}ed successfully`);
+        } catch (error) {
+            console.error(`Error in ${operation}ing card quantity:`, error);
+        }
+    };
+
+    const incrementCardQuantity = (card: CardData) => {
+        setCardQuantities(prevQuantities => ({
+            ...prevQuantities,
+            [card.id]: (prevQuantities[card.id] || 0) + 1
+        }));
+        updateCardQuantity(card.id, 'increment');
+        handleListUpdate();
+        onListUpdate?.();
+    };
+
+    const decrementCardQuantity = (card: CardData) => {
         setCardQuantities(prevQuantities => {
-            if (prevQuantities[cardId] > 1) {
-                return { ...prevQuantities, [cardId]: prevQuantities[cardId] - 1 };
+            if (prevQuantities[card.id] > 1) {
+                updateCardQuantity(card.id, 'decrement');
+                return { ...prevQuantities, [card.id]: prevQuantities[card.id] - 1 };
             }
             return prevQuantities;
         });
+        handleListUpdate();
+        onListUpdate?.();
     };
 
-    const deleteCard = (cardId: string) => {
-        setCardQuantities(prevQuantities => {
-            const newQuantities = { ...prevQuantities };
-            delete newQuantities[cardId];
-            return newQuantities;
+    const handleDeleteCard = (card: CardData) => {
+        deleteCardFromList(card.id).then(() => {
+            fetchData(currentPage);
         });
+        handleListUpdate();
+        onListUpdate?.();
+    };
+
+    const deleteCardFromList = async (cardId: string) => {
+        const url = `http://localhost:8000/api/delete-card-from-list/`;
+        try {
+            const response = await axios.delete(url, {
+                data: {
+                    list_id: selectedListId,
+                    card_id: cardId,
+                    card_type: 'pokemon'
+                }
+            });
+            if (response.status === 200) {
+                console.log('Card deleted from list successfully');
+                return true;
+            }
+        } catch (error) {
+            console.error('Error deleting card from list:', error);
+            return false;
+        }
     };
 
     const handleSearchClick = () => {
@@ -130,12 +200,6 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
-    };
-
-    const handleDeleteCard = async (card: CardData) => {
-        // Add your logic for deleting a card from the list here
-        console.log(`Delete card ${card.id}`);
-        deleteCard(card.id);
     };
 
     const cardInfo = selectedCard && (
@@ -189,26 +253,37 @@ const PokemonCards: React.FC<PokemonCardsProps> = ({ selectedListId, isInAddMode
                                 {card.name}
                             </Typography>
                             <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
-                                <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ mb: 1 }}>
+                                {isInAddMode && (
+                                    <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ mb: 1, width: '70px' }}>
+                                        Add
+                                    </Button>
+                                )}
+                                <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ mb: 1, width: '70px' }}>
                                     Info
                                 </Button>
-                                {!isInAddMode && (
-                                    <>
-                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                            {cardQuantities[card.id] > 1 && (
-                                                <>
-                                                    <Button variant="contained" onClick={() => decrementCardQuantity(card.id)}>-</Button>
-                                                    <Typography sx={{ mx: 1 }}>{cardQuantities[card.id]}</Typography>
-                                                    <Button variant="contained" onClick={() => incrementCardQuantity(card.id)}>+</Button>
-                                                </>
-                                            )}
-                                        </Box>
-                                        {cardQuantities[card.id] === 1 && (
-                                            <Button variant="contained" color="secondary" onClick={() => handleDeleteCard(card)} sx={{ mt: 1 }}>
+                                {selectedListId && !isInAddMode && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        {cardQuantities[card.id] > 1 ? (
+                                            <Button variant="contained" onClick={() => decrementCardQuantity(card)} sx={{ width: '35px' }}>-</Button>
+                                        ) : (
+                                            <Button
+                                                variant="contained"
+                                                color="secondary"
+                                                onClick={() => handleDeleteCard(card)}
+                                                sx={{
+                                                    width: '35px',
+                                                    backgroundColor: 'red',
+                                                    '&:hover': {
+                                                        backgroundColor: 'darkred',
+                                                    },
+                                                }}
+                                            >
                                                 Delete
                                             </Button>
                                         )}
-                                    </>
+                                        <Typography sx={{ mx: 1 }}>{cardQuantities[card.id] || 0}</Typography>
+                                        <Button variant="contained" onClick={() => incrementCardQuantity(card)} sx={{ width: '35px' }}>+</Button>
+                                    </Box>
                                 )}
                             </Box>
                         </Card>

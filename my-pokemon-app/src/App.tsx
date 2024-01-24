@@ -14,6 +14,7 @@ import LorcanaCards from './Cards/Lorcana/LorcanaCards';
 import BasketballCards from './Cards/BasketballCards';
 import HockeyCards from './Cards/HockeyCards';
 import Lists from './Lists';
+import { ListProvider } from './Types/CardList'
 
 const App: React.FC = () => {
     return (
@@ -23,19 +24,21 @@ const App: React.FC = () => {
                     <Box sx={{ display: 'flex', flexGrow: 1, bgcolor: '#333333', color: 'text.primary' }}>
                         <Sidebar />
                         <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                            <Routes>
-                                <Route path="/" element={<HomePage />} />
-                                <Route path="/cards" element={<CardTypesPage />} />
-                                <Route path="/cards/pokemon" element={<PokemonCards />} />
-                                <Route path="/cards/mtg" element={<MTGCards />} />
-                                <Route path="/cards/yu-gi-oh!" element={<YugiohCards />} />
-                                <Route path="/cards/lorcana" element={<LorcanaCards />} />
-                                <Route path="/cards/baseball" element={<BaseballCards />} />
-                                <Route path="/cards/football" element={<FootballCards />} />
-                                <Route path="/cards/basketball" element={<BasketballCards />} />
-                                <Route path="/cards/hockey" element={<HockeyCards />} />
-                                <Route path="/lists" element={<Lists />} />
-                            </Routes>
+                            <ListProvider>
+                                <Routes>
+                                    <Route path="/" element={<HomePage />} />
+                                    <Route path="/cards" element={<CardTypesPage />} />
+                                    <Route path="/cards/pokemon" element={<PokemonCards />} />
+                                    <Route path="/cards/mtg" element={<MTGCards />} />
+                                    <Route path="/cards/yu-gi-oh!" element={<YugiohCards />} />
+                                    <Route path="/cards/lorcana" element={<LorcanaCards />} />
+                                    <Route path="/cards/baseball" element={<BaseballCards />} />
+                                    <Route path="/cards/football" element={<FootballCards />} />
+                                    <Route path="/cards/basketball" element={<BasketballCards />} />
+                                    <Route path="/cards/hockey" element={<HockeyCards />} />
+                                    <Route path="/lists" element={<Lists />} />
+                                </Routes>
+                            </ListProvider>
                         </Box>
                     </Box>
                 </Box>

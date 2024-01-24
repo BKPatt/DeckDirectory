@@ -1,7 +1,5 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, Typography } from '@mui/material';
-import CardList from './CardList';
-import formatDate from '../helpers/formatDate';
 import PokemonCards from '../Cards/Pokemon/PokemonCards';
 import MTGCards from '../Cards/MTG/MTGCards';
 import YugiohCards from '../Cards/Yugioh/YugiohCards';
@@ -11,23 +9,33 @@ import FootballCards from '../Cards/FootballCards';
 import BasketballCards from '../Cards/BasketballCards';
 import HockeyCards from '../Cards/HockeyCards';
 import CardType from './CardType';
+import { CardList } from './CardList';
+import formatDate from '../helpers/formatDate';
 
-type ListDialogProps = {
+interface ListDialogProps {
     list: CardList | null;
     onClose: () => void;
-};
+}
 
-class ListDialog extends Component<ListDialogProps> {
-    renderCardContent = (listType: CardType) => {
+const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
+    const [currentList, setCurrentList] = useState<CardList | null>(null);
+
+    useEffect(() => {
+        if (list) {
+            setCurrentList(list);
+        }
+    }, [list]);
+
+    const renderCardContent = (listType: CardType) => {
         switch (listType) {
             case 'Pokemon':
-                return <PokemonCards selectedListId={this.props.list?.id} isInAddMode={false} />;
+                return <PokemonCards selectedListId={currentList?.id} isInAddMode={false} />;
             case 'MTG':
-                return <MTGCards selectedListId={this.props.list?.id} isInAddMode={false} />;
+                return <MTGCards selectedListId={currentList?.id} isInAddMode={false} />;
             case 'Yu-Gi-Oh!':
-                return <YugiohCards selectedListId={this.props.list?.id} isInAddMode={false} />;
+                return <YugiohCards selectedListId={currentList?.id} isInAddMode={false} />;
             case 'Lorcana':
-                return <LorcanaCards selectedListId={this.props.list?.id} isInAddMode={false} />;
+                return <LorcanaCards selectedListId={currentList?.id} isInAddMode={false} />;
             case 'Baseball':
                 return <BaseballCards />;
             case 'Football':
@@ -41,41 +49,23 @@ class ListDialog extends Component<ListDialogProps> {
         }
     };
 
-    render() {
-        const { list, onClose } = this.props;
-
-        return (
-            <Dialog
-                open={Boolean(list)}
-                onClose={onClose}
-                fullWidth
-                maxWidth="lg"
-            >
-                <DialogTitle textAlign='center' marginBottom={'15px'}>{list ? list.name : ''}</DialogTitle>
-                <DialogContent>
-                    {list && (
-                        <>
-                            <Grid container spacing={2}>
-                                <Grid item xs={4}>
-                                    <Typography variant="body1">Created By: {list.created_by}</Typography>
-                                </Grid>
-                                <Grid item xs={4}>
-                                    <Typography variant="body1">Created On: {formatDate(list.created_on)}</Typography>
-                                </Grid>
-                                <Grid item xs={4}>
-                                    <Typography variant="body1">Market Value: ${list.market_value}</Typography>
-                                </Grid>
-                            </Grid>
-                            {this.renderCardContent(list.type)}
-                        </>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={onClose}>Close</Button>
-                </DialogActions>
-            </Dialog>
-        );
-    }
-}
+    return (
+        <Dialog open={Boolean(currentList)} onClose={onClose} fullWidth maxWidth="lg">
+            <DialogTitle textAlign="center" marginBottom={'15px'}>
+                {currentList ? currentList.name : ''}
+            </DialogTitle>
+            <DialogContent>
+                {currentList && (
+                    <>
+                        {renderCardContent(currentList.type)}
+                    </>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose}>Close</Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
 
 export default ListDialog;

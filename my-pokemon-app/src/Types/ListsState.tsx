@@ -1,4 +1,4 @@
-import CardList from "./CardList";
+import { CardList } from "./CardList";
 import CardType from "./CardType";
 
 type ListsState = {

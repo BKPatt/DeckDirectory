@@ -1,15 +1,13 @@
+from decimal import Decimal
 from pathlib import Path
-from django.http import JsonResponse
-import requests
 from rest_framework import viewsets
-from .models import MTGCardFace, CardList, LorcanaCardData, MTGCardsData, MTGRelatedCard, YugiohCard, PokemonCardData, ListCard
+from .models import CardList, LorcanaCardData, MTGCardsData, YugiohCard, PokemonCardData, ListCard
 from .serializers import CardListSerializer, ListCardSerializer
 from decouple import Config, RepositoryEnv
 import logging
-from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Q
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.core.exceptions import ObjectDoesNotExist
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env_file = BASE_DIR / '.env'
@@ -45,6 +43,13 @@ def add_card_to_list(request):
         list_card.save()
 
         updated_list = CardList.objects.get(id=list_id)
+        market_value_increase = 0
+        if card.cardmarket and card.cardmarket.prices:
+            market_value_increase = Decimal(card.cardmarket.prices.get('averageSellPrice', {}))
+
+        updated_list.market_value += market_value_increase
+        updated_list.save()
+
         card_count = updated_list.list_cards.count()
 
         response_data = {
@@ -55,503 +60,103 @@ def add_card_to_list(request):
         return Response(response_data)
 
     except Exception as e:
+        logger.error(f"Error adding card to list: {e}")
         return Response({'error': str(e)}, status=400)
 
-def fetch_ebay_data(request):
+@api_view(['POST'])
+def update_card_quantity(request):
     try:
-        search_term = request.GET.get('searchTerm', 'default search term')
-        url = "https://svcs.sandbox.ebay.com/services/search/FindingService/v1"
-        params = {
-            'OPERATION-NAME': 'findItemsByKeywords',
-            'SERVICE-VERSION': '1.0.0',
-            'SECURITY-APPNAME': config('EBAY_API_KEY'),
-            'RESPONSE-DATA-FORMAT': 'JSON',
-            'REST-PAYLOAD': '',
-            'keywords': search_term
-        }
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        return JsonResponse(response.json())
-    except requests.RequestException as e:
-        return JsonResponse({'error': str(e)}, status=500)
-    
-def fetch_yugioh_cards(request):
-    try:
-        search_term = request.GET.get('name', '')
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        list_id = request.data.get('list_id')
+        card_id = request.data.get('card_id')
+        card_type = request.data.get('card_type')
+        operation = request.data.get('operation')
 
-        if search_term:
-            cards = YugiohCard.objects.filter(name__icontains=search_term).order_by('card_sets__set_code', 'id')
+        if not all([list_id, card_id, card_type, operation]):
+            logger.error(f"Missing required parameters: list_id={list_id}, card_id={card_id}, card_type={card_type}, operation={operation}")
+            return Response({'error': 'Missing required parameters'}, status=400)
+
+        card_key = f"{card_type}_card_id"
+        list_cards = ListCard.objects.filter(card_list_id=list_id, **{card_key: card_id})
+
+        if card_type == 'pokemon':
+            card = PokemonCardData.objects.get(id=card_id)
+            price_change = 0
+            if card.cardmarket and card.cardmarket.prices:
+                price_change = Decimal(card.cardmarket.prices.get('averageSellPrice', 0))
+
+            if operation == 'increment':
+                new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
+                new_card.save()
+                updated_list.market_value += price_change
+            elif operation == 'decrement' and list_cards.exists():
+                list_cards.first().delete()
+                updated_list.market_value -= price_change
+            else:
+                return Response({'error': 'Invalid operation'}, status=400)
+        elif card_type == 'yugioh':
+            card = YugiohCard.objects.get(id=card_id)
+        elif card_type == 'mtg':
+            card = MTGCardsData.objects.get(id=card_id)
+        elif card_type == 'lorcana':
+            card = LorcanaCardData.objects.get(id=card_id)
         else:
-            cards = YugiohCard.objects.all().order_by('card_sets__set_code', 'id')
+            return Response({'error': 'Invalid card type'}, status=400)
 
-        paginator = Paginator(cards, page_size)
-        current_page = paginator.page(page)
+        updated_list = CardList.objects.get(id=list_id)
+        updated_list.save()
+        return Response({'message': 'Card quantity updated successfully'})
 
-        card_list = []
-        for card in current_page:
-            card_data = {
-                'id': card.id,
-                'name': card.name,
-                'type': card.card_type,
-                'frameType': card.frame_type,
-                'desc': card.description,
-                'atk': card.attack,
-                'def': card.defense,
-                'level': card.level,
-                'race': card.race,
-                'attribute': card.attribute,
-                'card_sets': list(card.card_sets.values()),
-                'card_images': list(card.card_images.values()),
-                'card_prices': list(card.card_prices.values()),
-            }
-            card_list.append(card_data)
-
-        response_data = {
-            'data': card_list,
-            'total_pages': paginator.num_pages
-        }
-
-        return JsonResponse(response_data)
-
+    except ObjectDoesNotExist:
+        logger.error(f"Card not found: card_id={card_id}, card_type={card_type}")
+        return Response({'error': 'Card not found'}, status=404)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-    
-@api_view(['GET'])
-def get_pokemon_cards_by_list(request, list_id):
-    try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
-        search_term = request.GET.get('search', '')
-
-        list_cards = ListCard.objects.filter(card_list_id=list_id, pokemon_card__isnull=False).select_related('pokemon_card')
-        pokemon_cards = [lc.pokemon_card for lc in list_cards]
-
-        if search_term:
-            pokemon_cards = [card for card in pokemon_cards if search_term.lower() in card.name.lower()]
-
-        paginator = Paginator(pokemon_cards, page_size)
-        try:
-            current_page = paginator.page(page)
-        except EmptyPage:
-            return Response({'error': 'Page not found'}, status=404)
-        
-        serialized_data = []
-        for card in pokemon_cards:
-            card_data = {
-                'id': card.id,
-                'name': card.name,
-                'supertype': card.supertype,
-                'subtypes': card.subtypes,
-                'level': card.level,
-                'hp': card.hp,
-                'types': card.types,
-                'evolvesFrom': card.evolvesFrom,
-                'retreatCost': card.retreatCost,
-                'convertedRetreatCost': card.convertedRetreatCost,
-                'number': card.number,
-                'artist': card.artist,
-                'rarity': card.rarity,
-                'flavorText': card.flavorText,
-                'nationalPokedexNumbers': card.nationalPokedexNumbers,
-                'legalities': card.legalities,
-                'images': card.images,
-                'tcgplayer': {
-                    'url': card.tcgplayer.url,
-                    'updatedAt': card.tcgplayer.updatedAt,
-                    'prices': card.tcgplayer.prices
-                } if card.tcgplayer else None,
-                'cardmarket': {
-                    'url': card.cardmarket.url,
-                    'updatedAt': card.cardmarket.updatedAt,
-                    'prices': card.cardmarket.prices
-                } if card.cardmarket else None,
-                'abilities': [
-                    {
-                        'name': ability.name,
-                        'text': ability.text,
-                        'type': ability.type
-                    }
-                    for ability in card.abilities.all()
-                ],
-                'attacks': [
-                    {
-                        'name': attack.name,
-                        'cost': attack.cost,
-                        'convertedEnergyCost': attack.convertedEnergyCost,
-                        'damage': attack.damage,
-                        'text': attack.text
-                    }
-                    for attack in card.attacks.all()
-                ],
-                'weaknesses': [
-                    {
-                        'type': weakness.type,
-                        'value': weakness.value
-                    }
-                    for weakness in card.weaknesses.all()
-                ],
-                'set': {
-                    'id': card.set.id,
-                    'name': card.set.name,
-                    'series': card.set.series,
-                    'printedTotal': card.set.printedTotal,
-                    'total': card.set.total,
-                    'legalities': card.set.legalities,
-                    'ptcgoCode': card.set.ptcgoCode,
-                    'releaseDate': card.set.releaseDate,
-                    'updatedAt': card.set.updatedAt,
-                    'images': card.set.images
-                } if card.set else None,
-            }
-            serialized_data.append(card_data)
-
-        return JsonResponse({
-            'data': serialized_data,
-            'total_pages': paginator.num_pages
-        })
-    except Exception as e:
+        logger.error(f"Error updating card quantity: {e}")
         return Response({'error': str(e)}, status=500)
     
-
-@api_view(['GET'])
-def get_yugioh_cards_by_list(request, list_id):
-    page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 20))
-    search_term = request.GET.get('search', '')
-
-    list_cards = ListCard.objects.filter(card_list_id=list_id, yugioh_card__isnull=False).select_related('yugioh_card')
-    yugioh_cards = [lc.yugioh_card for lc in list_cards]
-
-    if search_term:
-        yugioh_cards = [card for card in yugioh_cards if search_term.lower() in card.name.lower()]
-
-    paginator = Paginator(yugioh_cards, page_size)
+@api_view(['DELETE'])
+def delete_card_from_list(request):
     try:
-        current_page = paginator.page(page)
-    except EmptyPage:
-        return Response({'error': 'Page not found'}, status=404)
+        list_id = request.data.get('list_id')
+        card_id = request.data.get('card_id')
+        card_type = request.data.get('card_type')
 
-    serialized_data = []
-    for card in current_page:
-        card_data = {
-            'id': card.id,
-            'name': card.name,
-            'type': card.card_type,
-            'frameType': card.frame_type,
-            'desc': card.description,
-            'atk': card.attack,
-            'def': card.defense,
-            'level': card.level,
-            'race': card.race,
-            'attribute': card.attribute,
-            'card_sets': list(card.card_sets.values()),
-            'card_images': list(card.card_images.values()),
-            'card_prices': list(card.card_prices.values()),
-        }
-        serialized_data.append(card_data)
+        if not all([list_id, card_id, card_type]):
+            logger.error(f"Missing required parameters: list_id={list_id}, card_id={card_id}, card_type={card_type}")
+            return Response({'error': 'Missing required parameters'}, status=400)
 
-    return JsonResponse({
-        'data': serialized_data,
-        'total_pages': paginator.num_pages
-    })
+        card_key = f"{card_type}_card"
+        list_card = ListCard.objects.filter(card_list_id=list_id, **{card_key: card_id}).first()
 
-
-@api_view(['GET'])
-def get_mtg_cards_by_list(request, list_id):
-    page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 20))
-    search_term = request.GET.get('search', '')
-
-    list_cards = ListCard.objects.filter(card_list_id=list_id, mtg_card__isnull=False).select_related('mtg_card')
-    mtg_cards = [lc.mtg_card for lc in list_cards]
-
-    if search_term:
-        mtg_cards = [card for card in mtg_cards if search_term.lower() in card.name.lower()]
-
-    paginator = Paginator(mtg_cards, page_size)
-    try:
-        current_page = paginator.page(page)
-    except EmptyPage:
-        return Response({'error': 'Page not found'}, status=404)
-
-    serialized_data = []
-    for card in current_page:
-        card_data = {
-            'id': card.id,
-            'name': card.name,
-            'lang': card.lang,
-            'released_at': card.released_at,
-            'uri': card.uri,
-            'layout': card.layout,
-            'image_uris': card.image_uris,
-            'cmc': card.cmc,
-            'type_line': card.type_line,
-            'color_identity': card.color_identity,
-            'keywords': card.keywords,
-            'legalities': card.legalities,
-            'games': card.games,
-            'set': card.set,
-            'set_name': card.set_name,
-            'set_type': card.set_type,
-            'rarity': card.rarity,
-            'artist': card.artist,
-            'prices': card.prices,
-            'related_uris': card.related_uris,
-            'card_faces': [{'name': face.name, 'mana_cost': face.mana_cost, 'type_line': face.type_line, 'oracle_text': face.oracle_text, 'colors': face.colors, 'power': face.power, 'toughness': face.toughness, 'artist': face.artist, 'image_uris': face.image_uris} for face in card.card_faces.all()],
-            'all_parts': [{'component': part.component, 'name': part.name, 'type_line': part.type_line, 'uri': part.uri} for part in card.all_parts.all()],
-        }
-        serialized_data.append(card_data)
-
-    return JsonResponse({
-        'data': serialized_data,
-        'total_pages': paginator.num_pages
-    })
-
-
-@api_view(['GET'])
-def get_lorcana_cards_by_list(request, list_id):
-    page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 20))
-    search_term = request.GET.get('search', '')
-
-    list_cards = ListCard.objects.filter(card_list_id=list_id, lorcana_card__isnull=False).select_related('lorcana_card')
-    lorcana_cards = [lc.lorcana_card for lc in list_cards]
-
-    if search_term:
-        lorcana_cards = [card for card in lorcana_cards if search_term.lower() in card.name.lower()]
-
-    paginator = Paginator(lorcana_cards, page_size)
-    try:
-        current_page = paginator.page(page)
-    except EmptyPage:
-        return Response({'error': 'Page not found'}, status=404)
-
-    serialized_data = []
-    for card in current_page:
-        card_data = {
-            'id': card.id,
-            'name': card.name,
-            'artist': card.artist,
-            'set_name': card.set_name,
-            'set_num': card.set_num,
-            'color': card.color,
-            'image': card.image,
-            'cost': card.cost,
-            'inkable': card.inkable,
-            'type': card.type,
-            'rarity': card.rarity,
-            'flavor_text': card.flavor_text,
-            'card_num': card.card_num,
-            'body_text': card.body_text,
-            'set_id': card.set_id,
-        }
-        serialized_data.append(card_data)
-
-    return JsonResponse({
-        'data': serialized_data,
-        'total_pages': paginator.num_pages
-    })
-
-
-def pokemon_cards_api(request):
-    try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
-        search_term = request.GET.get('search', '')
-        list_id = request.GET.get('list_id', None)
-        cards_query = PokemonCardData.objects.all()
-
-        if list_id:
-            cards_query = cards_query.filter(listcard__card_list_id=list_id)
-
-        if search_term:
-            cards_query = PokemonCardData.objects.filter(name__icontains=search_term).order_by('set__releaseDate', 'id')
+        if list_card:
+            list_card.delete()
+            return Response({'message': 'Card deleted from list successfully'})
         else:
-            cards_query = PokemonCardData.objects.all().order_by('set__releaseDate', 'id')
-
-        paginator = Paginator(cards_query, page_size)
-        try:
-            current_page = paginator.page(page)
-        except EmptyPage:
-            return JsonResponse({'error': 'Page not found'}, status=404)
-
-        serialized_cards = []
-        for card in current_page:
-            card_dict = {
-                'id': card.id,
-                'name': card.name,
-                'supertype': card.supertype,
-                'subtypes': card.subtypes,
-                'level': card.level,
-                'hp': card.hp,
-                'types': card.types,
-                'evolvesFrom': card.evolvesFrom,
-                'retreatCost': card.retreatCost,
-                'convertedRetreatCost': card.convertedRetreatCost,
-                'number': card.number,
-                'artist': card.artist,
-                'rules': card.rules,
-                'rarity': card.rarity,
-                'flavorText': card.flavorText,
-                'nationalPokedexNumbers': card.nationalPokedexNumbers,
-                'legalities': card.legalities,
-                'images': card.images,
-                'tcgplayer': {
-                    'url': card.tcgplayer.url,
-                    'updatedAt': card.tcgplayer.updatedAt,
-                    'prices': card.tcgplayer.prices
-                } if card.tcgplayer else None,
-                'cardmarket': {
-                    'url': card.cardmarket.url,
-                    'updatedAt': card.cardmarket.updatedAt,
-                    'prices': card.cardmarket.prices
-                } if card.cardmarket else None,
-                'abilities': [
-                    {
-                        'name': ability.name,
-                        'text': ability.text,
-                        'type': ability.type
-                    }
-                    for ability in card.abilities.all()
-                ],
-                'attacks': [
-                    {
-                        'name': attack.name,
-                        'cost': attack.cost,
-                        'convertedEnergyCost': attack.convertedEnergyCost,
-                        'damage': attack.damage,
-                        'text': attack.text
-                    }
-                    for attack in card.attacks.all()
-                ],
-                'weaknesses': [
-                    {
-                        'type': weakness.type,
-                        'value': weakness.value
-                    }
-                    for weakness in card.weaknesses.all()
-                ],
-                'set': {
-                    'id': card.set.id,
-                    'name': card.set.name,
-                    'series': card.set.series,
-                    'printedTotal': card.set.printedTotal,
-                    'total': card.set.total,
-                    'legalities': card.set.legalities,
-                    'ptcgoCode': card.set.ptcgoCode,
-                    'releaseDate': card.set.releaseDate,
-                    'updatedAt': card.set.updatedAt,
-                    'images': card.set.images
-                } if card.set else None,
-            }
-            serialized_cards.append(card_dict)
-
-        return JsonResponse({
-            'data': serialized_cards,
-            'total_pages': paginator.num_pages
-        })
+            return Response({'error': 'Card not found in the list'}, status=404)
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-    
-def fetch_lorcana_cards(request):
+        logger.error(f"Error deleting card from list: {e}")
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def get_list_by_id(request, list_id):
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
-        search_term = request.GET.get('search', '')
+        card_list = CardList.objects.prefetch_related('list_cards').get(id=list_id)
 
-        if search_term:
-            cards_query = LorcanaCardData.objects.filter(name__icontains=search_term).order_by('id')
-        else:
-            cards_query = LorcanaCardData.objects.all().order_by('id')
+        card_list_data = CardListSerializer(card_list).data
 
-        paginator = Paginator(cards_query, page_size)
-        try:
-            current_page = paginator.page(page)
-        except EmptyPage:
-            return JsonResponse({'error': 'Page not found'}, status=404)
+        list_cards = card_list.list_cards.all()
+        list_card_data = [ListCardSerializer(card).data for card in list_cards]
 
-        serialized_cards = [
-            {
-                'id': card.id,
-                'name': card.name,
-                'artist': card.artist,
-                'set_name': card.set_name,
-                'set_num': card.set_num,
-                'color': card.color,
-                'image': card.image,
-                'cost': card.cost,
-                'inkable': card.inkable,
-                'type': card.type,
-                'rarity': card.rarity,
-                'flavor_text': card.flavor_text,
-                'card_num': card.card_num,
-                'body_text': card.body_text,
-                'set_id': card.set_id,
-            }
-            for card in current_page
-        ]
+        response_data = {
+            'card_list': card_list_data,
+            'list_cards': list_card_data
+        }
 
-        return JsonResponse({
-            'data': serialized_cards,
-            'total_pages': paginator.num_pages
-        })
+        return Response(response_data)
 
+    except CardList.DoesNotExist:
+        logger.error(f"CardList not found: list_id={list_id}")
+        return Response({'error': 'CardList not found'}, status=404)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-    
-def fetch_mtg_cards(request):
-    search_term = request.GET.get('search', '')
-    page = request.GET.get('page', '1')
-
-    try:
-        cards_query = MTGCardsData.objects.filter(
-            Q(name__icontains=search_term) |
-            Q(type_line__icontains=search_term)
-        ).order_by('id').prefetch_related('card_faces', 'all_parts')
-
-        page_size = 20
-        total_pages = (cards_query.count() + page_size - 1) // page_size
-        cards_page = cards_query[int(page) * page_size - page_size:int(page) * page_size]
-
-        cards_data = []
-        for card in cards_page:
-            card_data = {
-                'id': card.id,
-                'name': card.name,
-                'lang': card.lang,
-                'released_at': card.released_at,
-                'uri': card.uri,
-                'layout': card.layout,
-                'image_uris': card.image_uris,
-                'cmc': card.cmc,
-                'type_line': card.type_line,
-                'color_identity': card.color_identity,
-                'keywords': card.keywords,
-                'legalities': card.legalities,
-                'games': card.games,
-                'set': card.set,
-                'set_name': card.set_name,
-                'set_type': card.set_type,
-                'rarity': card.rarity,
-                'artist': card.artist,
-                'prices': card.prices,
-                'related_uris': card.related_uris,
-            }
-
-            card_faces = MTGCardFace.objects.filter(card=card)
-            if card_faces.exists():
-                card_data['card_faces'] = [{'name': face.name, 'mana_cost': face.mana_cost, 'type_line': face.type_line, 'oracle_text': face.oracle_text, 'colors': face.colors, 'power': face.power, 'toughness': face.toughness, 'artist': face.artist, 'image_uris': face.image_uris} for face in card_faces]
-
-            related_cards = MTGRelatedCard.objects.filter(mtgcardsdata=card)
-            if related_cards.exists():
-                card_data['all_parts'] = [{'component': part.component, 'name': part.name, 'type_line': part.type_line, 'uri': part.uri} for part in related_cards]
-
-            cards_data.append(card_data)
-
-        return JsonResponse({'data': cards_data, 'total_pages': total_pages}, safe=False)
-
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Error retrieving list by ID: {e}")
+        return Response({'error': str(e)}, status=500)

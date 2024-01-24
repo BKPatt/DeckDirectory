@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 
@@ -233,6 +234,21 @@ class ListCard(models.Model):
     yugioh_card = models.ForeignKey(YugiohCard, on_delete=models.SET_NULL, null=True, blank=True)
     mtg_card = models.ForeignKey(MTGCardsData, on_delete=models.SET_NULL, null=True, blank=True)
     lorcana_card = models.ForeignKey(LorcanaCardData, on_delete=models.SET_NULL, null=True, blank=True)
+    market_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
+    @property
+    def card_market_value(self):
+        """
+        Returns the market value of the card from the appropriate card type.
+        This assumes each card type has a `cardmarket` attribute with `prices.averageSellPrice`.
+        """
+        if self.pokemon_card and self.pokemon_card.cardmarket:
+            return self.pokemon_card.cardmarket.prices.get('averageSellPrice', {})
+        return Decimal('0.00')
+
+    def save(self, *args, **kwargs):
+        self.market_value = self.card_market_value or Decimal('0.00')
+        super().save(*args, **kwargs)
 
 CardList.cards = models.ManyToManyField('app_name.PokemonCardData', through='app_name.ListCard', related_name='card_lists')
 CardList.yugioh_cards = models.ManyToManyField('app_name.YugiohCard', through='app_name.ListCard', related_name='yugioh_card_lists')
