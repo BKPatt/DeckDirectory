@@ -12,6 +12,9 @@ type PokemonCardsProps = {
     isInAddMode?: boolean;
 };
 type SortOptionType = { label: string; value: string } | null;
+interface OptionType {
+    label: string;
+}
 
 const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
     const [cards, setCards] = useState<CardData[]>([]);
@@ -29,18 +32,25 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
         { label: 'Price Descending', value: 'price_desc' },
     ];
     const { listData, updateListData } = useList();
-    const [filterOptions, setFilterOptions] = useState({
+    const [filterOptions, setFilterOptions] = useState<{
+        types: OptionType[];
+        subtypes: OptionType[];
+        supertypes: OptionType[];
+        rarities: OptionType[];
+        sets: OptionType[];
+    }>({
         types: [],
         subtypes: [],
         supertypes: [],
         rarities: [],
         sets: [],
     });
-    const [supertypeFilter, setSupertypeFilter] = useState(null);
-    const [subtypeFilter, setSubtypeFilter] = useState(null);
-    const [typeFilter, setTypeFilter] = useState(null);
-    const [rarityFilter, setRarityFilter] = useState(null);
-    const [setFilter, setSetFilter] = useState(null);
+    const [supertypeFilter, setSupertypeFilter] = useState<OptionType | null>(null);
+    const [subtypeFilter, setSubtypeFilter] = useState<OptionType | null>(null);
+    const [typeFilter, setTypeFilter] = useState<OptionType | null>(null);
+    const [rarityFilter, setRarityFilter] = useState<OptionType | null>(null);
+    const [setFilter, setSetFilter] = useState<OptionType | null>(null);
+
 
     const transformTcgplayerData = (backendData: any): Tcgplayer => {
         const prices = backendData.prices || {};
@@ -88,6 +98,7 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
                     page_size: cardsPerPage,
                     list_id: selectedListId,
                     sort: sortOption?.value,
+                    isInAddMode: isInAddMode,
                     ...filters
                 }
             };
@@ -344,10 +355,11 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
                     id="combo-box-supertype"
                     disablePortal
                     options={filterOptions.supertypes}
+                    getOptionLabel={(option) => option.label}
                     value={supertypeFilter}
                     onChange={(_event, newValue) => setSupertypeFilter(newValue)}
                     sx={{ width: 200 }}
-                    isOptionEqualToValue={(option, value) => option === value}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
                     renderInput={(params) => <TextField {...params} label="Supertype" />}
                 />
             </FormControl>

@@ -1,11 +1,15 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from ..models import PokemonCardData, ListCard, PokemonTcgplayer, PokemonCardmarket
+from ..models import PokemonCardData
 from django.core.paginator import Paginator, EmptyPage
 from django.http import JsonResponse
-from django.db.models import Subquery, OuterRef, FloatField, Value, ExpressionWrapper, F, Case, When, Func
-from django.db.models.functions import Coalesce, Cast
-from django.db.models.expressions import RawSQL
+from django.db.models import FloatField, Value, ExpressionWrapper, F, Func
+from django.db.models.functions import Coalesce
+
+class JsonbExtractPathCast(Func):
+    function = 'JSONB_EXTRACT_PATH_TEXT'
+    template = "(CAST(JSONB_EXTRACT_PATH_TEXT(%(expressions)s) AS NUMERIC))"
+    output_field = FloatField()
     
 @api_view(['GET'])
 def get_pokemon_cards_by_list(request, list_id):
@@ -13,14 +17,57 @@ def get_pokemon_cards_by_list(request, list_id):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         search_term = request.GET.get('search', '')
+        supertype_filter = request.GET.get('supertype', '').strip()
+        subtype_filter = [s.strip() for s in request.GET.getlist('subtype') if s.strip()]
+        type_filter = [t.strip() for t in request.GET.getlist('type') if t.strip()]
+        rarity_filter = request.GET.get('rarity', '').strip()
+        set_filter = request.GET.get('set', '').strip()
+        sort_by = request.GET.get('sort', None)
 
-        list_cards = ListCard.objects.filter(card_list_id=list_id, pokemon_card__isnull=False).select_related('pokemon_card')
-        pokemon_cards = [lc.pokemon_card for lc in list_cards]
+        cards_query = PokemonCardData.objects.filter(listcard__card_list_id=list_id).annotate(
+            tcgplayer_market=Coalesce(
+                JsonbExtractPathCast('tcgplayer__prices', Value('holofoil'), Value('market')),
+                JsonbExtractPathCast('tcgplayer__prices', Value('normal'), Value('market')),
+                Value(0.0),
+                output_field=FloatField()
+            ),
+            cardmarket_market=Coalesce(
+                JsonbExtractPathCast('cardmarket__prices', Value('reverseHoloTrend')),
+                JsonbExtractPathCast('cardmarket__prices', Value('trendPrice')),
+                Value(0.0),
+                output_field=FloatField()
+            )
+        ).annotate(
+            combined_average_price=ExpressionWrapper(
+                F('tcgplayer_market') + F('cardmarket_market'),
+                output_field=FloatField()
+            )
+        )
 
         if search_term:
-            pokemon_cards = [card for card in pokemon_cards if search_term.lower() in card.name.lower()]
+            cards_query = cards_query.filter(name__icontains=search_term)
+        if supertype_filter:
+            cards_query = cards_query.filter(supertype=supertype_filter)
+        if subtype_filter:
+            cards_query = cards_query.filter(subtypes__in=subtype_filter)
+        if type_filter:
+            cards_query = cards_query.filter(types__in=type_filter)
+        if rarity_filter:
+            cards_query = cards_query.filter(rarity=rarity_filter)
+        if set_filter:
+            cards_query = cards_query.filter(set__name=set_filter)
 
-        paginator = Paginator(pokemon_cards, page_size)
+        if sort_by:
+            if sort_by == 'name_asc':
+                cards_query = cards_query.order_by('name')
+            elif sort_by == 'name_desc':
+                cards_query = cards_query.order_by('-name')
+            elif sort_by == 'price_asc':
+                cards_query = cards_query.order_by('combined_average_price')
+            elif sort_by == 'price_desc':
+                cards_query = cards_query.order_by('-combined_average_price')
+
+        paginator = Paginator(cards_query, page_size)
         try:
             current_page = paginator.page(page)
         except EmptyPage:
@@ -131,6 +178,7 @@ def pokemon_cards_api(request):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         search_term = request.GET.get('search', '')
+        isInAddMode = request.GET.get('isInAddMode', False)
         list_id = request.GET.get('list_id', None)
         sort_by = request.GET.get('sort', None)
 
@@ -139,11 +187,6 @@ def pokemon_cards_api(request):
         type_filter = [t.strip() for t in request.GET.getlist('type') if t.strip()]
         rarity_filter = request.GET.get('rarity', '').strip()
         set_filter = request.GET.get('set', '').strip()
-
-        class JsonbExtractPathCast(Func):
-            function = 'JSONB_EXTRACT_PATH_TEXT'
-            template = "(CAST(JSONB_EXTRACT_PATH_TEXT(%(expressions)s) AS NUMERIC))"
-            output_field = FloatField()
 
         cards_query = PokemonCardData.objects.annotate(
             tcgplayer_market=Coalesce(
@@ -165,7 +208,7 @@ def pokemon_cards_api(request):
             )
         )
 
-        if list_id:
+        if list_id and not isInAddMode:
             cards_query = cards_query.filter(listcard__card_list_id=list_id)
 
         if search_term:
