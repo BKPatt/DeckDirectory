@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import axios from 'axios';
-import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { CardData } from './CardData';
+import { Box, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem, FormControl, InputLabel, TextField, SelectChangeEvent, InputAdornment } from '@mui/material';
+import { CardData, EnergyType, Tcgplayer } from './CardData';
 import CardInfo from './PokemonCardInfo';
 import { CardList, useList } from '../../Types/CardList'
+import SearchIcon from '@mui/icons-material/Search';
+import Autocomplete from '@mui/material/Autocomplete';
 
 type PokemonCardsProps = {
     selectedListId?: string;
     isInAddMode?: boolean;
 };
+type SortOptionType = { label: string; value: string } | null;
 
 const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
     const [cards, setCards] = useState<CardData[]>([]);
@@ -17,12 +20,66 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
     const [cardsPerPage] = useState(20);
     const [showData, setShowData] = useState(false);
     const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
-    const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
+    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+        { label: 'Name Ascending', value: 'name_asc' },
+        { label: 'Name Descending', value: 'name_desc' },
+        { label: 'Price Ascending', value: 'price_asc' },
+        { label: 'Price Descending', value: 'price_desc' },
+    ];
     const { listData, updateListData } = useList();
+    const [filterOptions, setFilterOptions] = useState({
+        types: [],
+        subtypes: [],
+        supertypes: [],
+        rarities: [],
+        sets: [],
+    });
+    const [supertypeFilter, setSupertypeFilter] = useState(null);
+    const [subtypeFilter, setSubtypeFilter] = useState(null);
+    const [typeFilter, setTypeFilter] = useState(null);
+    const [rarityFilter, setRarityFilter] = useState(null);
+    const [setFilter, setSetFilter] = useState(null);
 
-    const fetchData = async (page: number = 1) => {
+    const transformTcgplayerData = (backendData: any): Tcgplayer => {
+        const prices = backendData.prices || {};
+
+        const defaultPriceStructure = {
+            low: null,
+            mid: null,
+            high: null,
+            market: null,
+            directLow: null
+        };
+
+        return {
+            url: backendData.url,
+            updatedAt: backendData.updatedAt,
+            prices: {
+                normal: prices.normal
+                    ? {
+                        low: prices.normal.low ?? 0,
+                        mid: prices.normal.mid ?? 0,
+                        high: prices.normal.high ?? 0,
+                        market: prices.normal.market ?? 0,
+                        directLow: prices.normal.directLow ?? 0
+                    }
+                    : defaultPriceStructure,
+                holofoil: prices.holofoil
+                    ? {
+                        low: prices.holofoil.low ?? 0,
+                        mid: prices.holofoil.mid ?? 0,
+                        high: prices.holofoil.high ?? 0,
+                        market: prices.holofoil.market ?? 0,
+                        directLow: prices.holofoil.directLow ?? 0
+                    }
+                    : defaultPriceStructure
+            }
+        };
+    };
+
+    const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
                 params: {
@@ -30,6 +87,8 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
                     page: page,
                     page_size: cardsPerPage,
                     list_id: selectedListId,
+                    sort: sortOption?.value,
+                    ...filters
                 }
             };
             let url = isInAddMode == null ? `http://localhost:8000/api/pokemon-cards/`
@@ -39,6 +98,13 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
 
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: CardData[] = response.data.data;
+
+                fetchedCards.map((card: CardData) => {
+                    if (card.tcgplayer) {
+                        card.tcgplayer = transformTcgplayerData(card.tcgplayer);
+                    }
+                    return card as CardData;
+                });
 
                 const uniqueCards: CardData[] = [];
                 const cardCount: { [key: string]: number } = {};
@@ -71,6 +137,19 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
         }
         handleListUpdate();
     }, [selectedListId]);
+
+    useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/api/filter-options/');
+                setFilterOptions(response.data);
+            } catch (error) {
+                console.error('Error fetching filter options:', error);
+            }
+        };
+
+        fetchFilterOptions();
+    }, []);
 
     const handleAddCard = async (card: CardData) => {
         if (selectedListId) {
@@ -185,11 +264,23 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
 
     const handleSearchClick = () => {
         setCurrentPage(1);
-        fetchData(1);
+        fetchData(1, {
+            supertype: supertypeFilter,
+            subtype: subtypeFilter,
+            type: typeFilter,
+            rarity: rarityFilter,
+            set: setFilter
+        });
     };
 
     const paginate = (value: number) => {
-        fetchData(value);
+        fetchData(value, {
+            supertype: supertypeFilter,
+            subtype: subtypeFilter,
+            type: typeFilter,
+            rarity: rarityFilter,
+            set: setFilter
+        });
     };
 
     const handleCardInfo = (card: CardData) => {
@@ -200,6 +291,16 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
+    };
+
+    const handleClearFilters = () => {
+        setSearch('');
+        setSupertypeFilter(null);
+        setSubtypeFilter(null);
+        setTypeFilter(null);
+        setRarityFilter(null);
+        setSetFilter(null);
+        setSortOption(null);
     };
 
     const cardInfo = selectedCard && (
@@ -229,16 +330,90 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
                 variant="outlined"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                sx={{ mb: 2 }}
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <SearchIcon />
+                        </InputAdornment>
+                    ),
+                }}
+                sx={{ mb: { xs: 2, lg: 2 }, margin: '5px' }}
             />
-            <TextField
-                label="Filter"
-                variant="outlined"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                sx={{ mb: 2 }}
-            />
-            <Button variant="contained" onClick={handleSearchClick}>Search</Button>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-supertype"
+                    disablePortal
+                    options={filterOptions.supertypes}
+                    value={supertypeFilter}
+                    onChange={(_event, newValue) => setSupertypeFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Supertype" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-subtype"
+                    disablePortal
+                    options={filterOptions.subtypes}
+                    value={subtypeFilter}
+                    onChange={(_event, newValue) => setSubtypeFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Subtype" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-type"
+                    disablePortal
+                    options={filterOptions.types}
+                    value={typeFilter}
+                    onChange={(_event, newValue) => setTypeFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Type" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-rarity"
+                    disablePortal
+                    options={filterOptions.rarities}
+                    value={rarityFilter}
+                    onChange={(_event, newValue) => setRarityFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Rarity" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-set"
+                    disablePortal
+                    options={filterOptions.sets}
+                    value={setFilter}
+                    onChange={(_event, newValue) => setSetFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Set" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-sort"
+                    disablePortal
+                    options={sortOptions}
+                    value={sortOption}
+                    onChange={(_event, newValue) => setSortOption(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option.value === value.value}
+                    renderInput={(params) => <TextField {...params} label="Sort By" />}
+                />
+            </FormControl>
+
+            <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
+            <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
             <Grid container spacing={2}>
                 {Array.isArray(cards) && cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>

@@ -317,7 +317,11 @@ const Lists = () => {
                 {sortedLists.map((list) => (
                     <TableRow
                         key={list.id}
-                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                        sx={{
+                            '&:last-child td, &:last-child th': { border: 0 }, '&:hover': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                            },
+                        }}
                         onClick={() => openDialogWithList(list)}
                     >
                         <TableCell component="th" scope="row" style={clickableStyle}>

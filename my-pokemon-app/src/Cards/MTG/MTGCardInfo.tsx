@@ -7,16 +7,11 @@ type CardInfoProps = {
     card: MTGCardData;
 };
 
-const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
+const MTGCardInfo: React.FC<CardInfoProps> = ({ card }) => {
     const [selectedTab, setSelectedTab] = useState(0);
-    const [dropdownValue, setDropdownValue] = useState('');
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setSelectedTab(newValue);
-    };
-
-    const handleDropdownChange = (event: SelectChangeEvent) => {
-        setDropdownValue(event.target.value as string);
     };
 
     const renderProperty = (label: string, value: string | JSX.Element) => (
@@ -28,24 +23,54 @@ const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
         </Box>
     );
 
-    const formatNumber = (number: string, total: number) => {
-        const totalLength = `${total}`.length;
-        return `${number}`.padStart(totalLength, '0');
+    const renderLegalities = (legalities: { [key: string]: string }) => {
+        return Object.entries(legalities).map(([format, legality]) =>
+            renderProperty(format.charAt(0).toUpperCase() + format.slice(1), legality.charAt(0).toUpperCase() + legality.slice(1))
+        );
+    };
+
+    const renderGames = (games: string[]) => {
+        const gameNames: { [key: string]: string } = {
+            'arena': 'Magic: The Gathering Arena',
+            'paper': 'Traditional Paper-Based',
+            'mtgo': 'Magic: The Gathering Online'
+        };
+
+        return games.map(game =>
+            renderProperty('Game', gameNames[game] || game)
+        );
+    };
+
+    const renderPrices = (prices: any) => {
+        const priceLabels: { [key: string]: string } = {
+            'eur': 'EUR',
+            'tix': 'TIX',
+            'usd': 'USD',
+            'eur_foil': 'EUR Foil',
+            'usd_foil': 'USD Foil',
+            'usd_etched': 'USD Etched'
+        };
+
+        return Object.entries(prices).map(([key, value]) => {
+            if (value === null || value === undefined) return null;
+            return renderProperty(priceLabels[key], value.toString());
+        }).filter(Boolean);
     };
 
     return (
-        <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2 }}>
-            <CardMedia
-                component="img"
-                sx={{ width: 'auto', maxWidth: '40%', maxHeight: '100%', borderRight: '1px solid rgba(0,0,0,0.12)' }}
-                image={card.image_uris?.small || Default}
-                alt={card.name}
-            />
-            <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+        <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2, height: '100%' }}>
+            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CardMedia
+                    component="img"
+                    sx={{ maxWidth: '100%', maxHeight: '100%' }}
+                    image={card.image_uris?.large || Default}
+                    alt={card.name}
+                />
+            </Box>
+            <Box sx={{ p: 2, flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                 <Typography gutterBottom variant="h5" component="div">
                     {card.name}
                 </Typography>
-
                 <Tabs
                     value={selectedTab}
                     onChange={handleTabChange}
@@ -54,7 +79,8 @@ const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
                     sx={{ borderBottom: '1px solid rgba(0,0,0,0.12)', marginBottom: '25px' }}
                 >
                     <Tab label="Details" />
-                    <Tab label="Attacks" />
+                    <Tab label="Legalities" />
+                    <Tab label="Games" />
                     <Tab label="Prices" />
                 </Tabs>
 
@@ -62,73 +88,34 @@ const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
 
                 {selectedTab === 0 && (
                     <Box>
-                        {/* <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
-                            {card.types && card.types.length > 0 && renderProperty('Type', <>{card.types.map((type, index) => <img key={index} src={getEnergyImage(type)} alt={`${type} type`} style={{ width: '20px', height: '20px' }} />)}</>)}
-                            {card.hp && renderProperty('HP', card.hp)}
-                            {card.retreatCost && card.retreatCost.length > 0 && renderProperty('Retreat Cost', <>{card.retreatCost.map((_, index) => <img key={index} src={getEnergyImage('Colorless')} alt="Colorless energy" style={{ width: '20px', height: '20px', margin: '3px' }} />)}</>)}
-                            {card.evolvesFrom && renderProperty('Evolves from', card.evolvesFrom)}
-                            {card.artist && renderProperty('Illustrated By', card.artist)}
-                            {card.nationalPokedexNumbers && card.nationalPokedexNumbers.length > 0 && renderProperty('National Pokédex #', card.nationalPokedexNumbers.join(', '))}
-                            {card.weaknesses && card.weaknesses.map((weakness, index) => (
-                                renderProperty('Weaknesses', <Typography><img key={index} src={getEnergyImage(weakness.type)} alt={`${weakness.type} type icon`} style={{ width: '20px', height: '20px' }} /> {weakness.value}</Typography>)
-                            ))}
+                        <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                            {card.cmc && renderProperty('Mana Cost', card.cmc.toString())}
+                            {card.type_line && renderProperty('Type', card.type_line)}
+                            {card.rarity && renderProperty('Rarity', card.rarity)}
+                            {card.released_at && renderProperty('Realeased', card.released_at)}
+                            {card.set_name && renderProperty('Set', card.set_name)}
+                            {card.set_type && renderProperty('Set Type', card.set_type)}
+                            {card.artist && renderProperty('Artist', card.artist)}
                             {card.rarity && renderProperty('Rarity', card.rarity)}
                         </Box>
-                        {card.flavorText && <Box border={'1px solid #eee'} padding={'10px'}>
-                            {card.flavorText && card.flavorText}
-                        </Box>} */}
                     </Box>
                 )}
 
                 {selectedTab === 1 && (
-                    <Box>
-                        {/* {card.abilities && card.abilities.map((ability, index) => (
-                            <Box border={'1px solid #eee'} padding={'10px'} key={index} marginBottom={'20px'}>
-                                <Typography variant="subtitle1">
-                                    <strong>{ability.type}: {ability.name}</strong>
-                                </Typography>
-                                <Typography variant="body2">{ability.text}</Typography>
-                            </Box>
-                        ))} */}
-
-                        {/* {card.attacks.map((attack, index) => (
-                            <Box border={'1px solid #eee'} padding={'10px'} key={index}>
-                                <Typography variant="subtitle1">
-                                    {attack.cost.map((energyType, costIndex) => (
-                                        <img
-                                            key={costIndex}
-                                            src={getEnergyImage(energyType)}
-                                            alt={`${energyType} energy`}
-                                            style={{ width: '20px', height: '20px', marginRight: '5px' }}
-                                        />
-                                    ))}
-                                    <strong>{attack.name}</strong>
-                                </Typography>
-                                <Typography variant="body2">{attack.text}</Typography>
-                                {attack.damage && <Typography variant="body2">Damage: {attack.damage}</Typography>}
-                            </Box>
-                        ))} */}
+                    <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                        {card.legalities && renderLegalities(card.legalities)}
                     </Box>
                 )}
 
                 {selectedTab === 2 && (
-                    <Box>
-                        <FormControl fullWidth>
-                            <InputLabel id="select-label">Card Type</InputLabel>
-                            <Select
-                                labelId="select-label"
-                                id="simple-select"
-                                value={dropdownValue}
-                                label="Card Type"
-                                onChange={handleDropdownChange}
-                            >
-                                <MenuItem value={'Normal'}>Normal</MenuItem>
-                                <MenuItem value={'Reverse Holo'}>Reverse Holo</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <Box>
-                            {card.prices && renderProperty('Average Sell Price', <Typography>{ }</Typography>)}
-                        </Box>
+                    <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                        {card.games && renderGames(card.games as any[])}
+                    </Box>
+                )}
+
+                {selectedTab === 3 && (
+                    <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                        {card.prices && renderPrices(card.prices)}
                     </Box>
                 )}
             </Box>
@@ -136,4 +123,4 @@ const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
     );
 };
 
-export default YugiohCardInfo;
+export default MTGCardInfo;

@@ -1,8 +1,11 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from ..models import PokemonCardData, ListCard
+from ..models import PokemonCardData, ListCard, PokemonTcgplayer, PokemonCardmarket
 from django.core.paginator import Paginator, EmptyPage
 from django.http import JsonResponse
+from django.db.models import Subquery, OuterRef, FloatField, Value, ExpressionWrapper, F, Case, When, Func
+from django.db.models.functions import Coalesce, Cast
+from django.db.models.expressions import RawSQL
     
 @api_view(['GET'])
 def get_pokemon_cards_by_list(request, list_id):
@@ -24,7 +27,7 @@ def get_pokemon_cards_by_list(request, list_id):
             return Response({'error': 'Page not found'}, status=404)
         
         serialized_data = []
-        for card in pokemon_cards:
+        for card in current_page:
             card_data = {
                 'id': card.id,
                 'name': card.name,
@@ -95,8 +98,31 @@ def get_pokemon_cards_by_list(request, list_id):
 
         return JsonResponse({
             'data': serialized_data,
-            'total_pages': paginator.num_pages
+            'total_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size
         })
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+    
+@api_view(['GET'])
+def get_filter_options(request):
+    try:
+        types = PokemonCardData.objects.values(type=F('types')).distinct()
+        subtypes = PokemonCardData.objects.values('subtypes').distinct()
+        supertypes = PokemonCardData.objects.values('supertype').distinct()
+        rarities = PokemonCardData.objects.values('rarity').distinct()
+        sets = PokemonCardData.objects.values('set__name').distinct()
+
+        filter_options = {
+            'types': [item['type'] for item in types],
+            'subtypes': [item['subtypes'] for item in subtypes],
+            'supertypes': [item['supertype'] for item in supertypes],
+            'rarities': [item['rarity'] for item in rarities],
+            'sets': [item['set__name'] for item in sets],
+        }
+
+        return Response(filter_options)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
     
@@ -106,15 +132,65 @@ def pokemon_cards_api(request):
         page_size = int(request.GET.get('page_size', 20))
         search_term = request.GET.get('search', '')
         list_id = request.GET.get('list_id', None)
-        cards_query = PokemonCardData.objects.all()
+        sort_by = request.GET.get('sort', None)
+
+        supertype_filter = request.GET.get('supertype', '').strip()
+        subtype_filter = [s.strip() for s in request.GET.getlist('subtype') if s.strip()]
+        type_filter = [t.strip() for t in request.GET.getlist('type') if t.strip()]
+        rarity_filter = request.GET.get('rarity', '').strip()
+        set_filter = request.GET.get('set', '').strip()
+
+        class JsonbExtractPathCast(Func):
+            function = 'JSONB_EXTRACT_PATH_TEXT'
+            template = "(CAST(JSONB_EXTRACT_PATH_TEXT(%(expressions)s) AS NUMERIC))"
+            output_field = FloatField()
+
+        cards_query = PokemonCardData.objects.annotate(
+            tcgplayer_market=Coalesce(
+                JsonbExtractPathCast('tcgplayer__prices', Value('holofoil'), Value('market')),
+                JsonbExtractPathCast('tcgplayer__prices', Value('normal'), Value('market')),
+                Value(0.0),
+                output_field=FloatField()
+            ),
+            cardmarket_market=Coalesce(
+                JsonbExtractPathCast('cardmarket__prices', Value('reverseHoloTrend')),
+                JsonbExtractPathCast('cardmarket__prices', Value('trendPrice')),
+                Value(0.0),
+                output_field=FloatField()
+            )
+        ).annotate(
+            combined_average_price=ExpressionWrapper(
+                F('tcgplayer_market') + F('cardmarket_market'),
+                output_field=FloatField()
+            )
+        )
 
         if list_id:
             cards_query = cards_query.filter(listcard__card_list_id=list_id)
 
         if search_term:
-            cards_query = PokemonCardData.objects.filter(name__icontains=search_term).order_by('set__releaseDate', 'id')
-        else:
-            cards_query = PokemonCardData.objects.all().order_by('set__releaseDate', 'id')
+            cards_query = cards_query.filter(name__icontains=search_term)
+
+        if supertype_filter:
+            cards_query = cards_query.filter(supertype=supertype_filter)
+        if subtype_filter:
+            cards_query = cards_query.filter(subtypes__in=subtype_filter)
+        if type_filter:
+            cards_query = cards_query.filter(types__in=type_filter)
+        if rarity_filter:
+            cards_query = cards_query.filter(rarity=rarity_filter)
+        if set_filter:
+            cards_query = cards_query.filter(set__name=set_filter)
+        
+        if sort_by:
+            if sort_by == 'name_asc':
+                cards_query = cards_query.order_by('name')
+            elif sort_by == 'name_desc':
+                cards_query = cards_query.order_by('-name')
+            elif sort_by == 'price_asc':
+                cards_query = cards_query.order_by('combined_average_price')
+            elif sort_by == 'price_desc':
+                cards_query = cards_query.order_by('-combined_average_price')
 
         paginator = Paginator(cards_query, page_size)
         try:
@@ -199,4 +275,5 @@ def pokemon_cards_api(request):
         })
 
     except Exception as e:
+        print(f"Error in pokemon_cards_api: {e}")
         return JsonResponse({'error': str(e)}, status=500)

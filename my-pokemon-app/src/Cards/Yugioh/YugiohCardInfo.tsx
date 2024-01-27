@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider } from '@mui/material';
 import { YugiohCardData } from './YugiohCardData';
 
 type CardInfoProps = {
@@ -8,130 +8,151 @@ type CardInfoProps = {
 
 const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
     const [selectedTab, setSelectedTab] = useState(0);
-    const [dropdownValue, setDropdownValue] = useState('');
+    const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
+    const [imageAdjustedHeight, setImageAdjustedHeight] = useState<number | undefined>(undefined);
+    const [imageWidth, setImageWidth] = useState<number | undefined>(undefined);
+    const imageRef = useRef<HTMLImageElement>(null);
+    const tabBoxRef = useRef<HTMLDivElement | null>(null);
+    const [tabBoxHeight, setTabBoxHeight] = useState<number>(0);
+
+    const [dimensions, setDimensions] = useState<{
+        imageHeight: number | undefined;
+        imageWidth: number | undefined;
+    }>({
+        imageHeight: undefined,
+        imageWidth: undefined,
+    });
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setSelectedTab(newValue);
     };
 
-    const handleDropdownChange = (event: SelectChangeEvent) => {
-        setDropdownValue(event.target.value as string);
+    const updateDimensions = () => {
+        const imageCurrent = imageRef.current;
+        const tabBoxCurrent = tabBoxRef.current;
+        if (imageCurrent) {
+            setDimensions({
+                imageHeight: imageCurrent.clientHeight,
+                imageWidth: imageCurrent.clientWidth
+            });
+        }
+        if (tabBoxCurrent) {
+            setTabBoxHeight(tabBoxCurrent.clientHeight);
+        }
     };
 
-    const renderProperty = (label: string, value: string | JSX.Element) => (
+    useEffect(() => {
+        if (imageRef.current && tabBoxRef.current) {
+            const imageCurrentHeight = imageRef.current.clientHeight;
+            const tabBoxCurrentHeight = tabBoxRef.current.clientHeight;
+            const adjustedHeight = imageCurrentHeight - tabBoxCurrentHeight - 20;
+
+            setImageHeight(imageCurrentHeight);
+            setImageAdjustedHeight(Math.max(0, adjustedHeight));
+            setImageWidth(imageRef.current.clientWidth);
+        }
+    }, [imageHeight, imageWidth, tabBoxHeight]);
+
+    const renderProperty = (label: string, value: string | number | JSX.Element) => (
         <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', marginBottom: '5px' }}>
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', margin: '5px' }}>
                 {label}
             </Typography>
             <Typography variant="body2">{value}</Typography>
         </Box>
     );
 
-    const formatNumber = (number: string, total: number) => {
-        const totalLength = `${total}`.length;
-        return `${number}`.padStart(totalLength, '0');
-    };
-
     return (
-        <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', margin: 2, boxShadow: 3, borderRadius: 2 }}>
             <CardMedia
                 component="img"
-                sx={{ width: 'auto', maxWidth: '40%', maxHeight: '100%', borderRight: '1px solid rgba(0,0,0,0.12)' }}
-                image={card.card_images[0]?.image_url_small}
+                sx={{
+                    width: '40%',
+                    objectFit: 'cover',
+                    minHeight: imageHeight,
+                    maxHeight: imageHeight,
+                    minWidth: imageWidth,
+                    maxWidth: imageWidth
+                }}
+                image={card.card_images[0]?.image_url}
                 alt={card.name}
+                ref={imageRef}
+                onLoad={() => {
+                    setImageHeight(imageRef.current?.clientHeight);
+                    setImageWidth(imageRef.current?.clientWidth)
+                }}
             />
-            <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
-                <Typography gutterBottom variant="h5" component="div">
-                    {card.name}
-                </Typography>
 
-                <Tabs
-                    value={selectedTab}
-                    onChange={handleTabChange}
-                    aria-label="card info tabs"
-                    variant="fullWidth"
-                    sx={{ borderBottom: '1px solid rgba(0,0,0,0.12)', marginBottom: '25px' }}
-                >
-                    <Tab label="Details" />
-                    <Tab label="Attacks" />
-                    <Tab label="Prices" />
-                </Tabs>
+            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, maxHeight: imageHeight }}>
+                <Box ref={tabBoxRef} sx={{ flexShrink: 0, marginLeft: '10px' }}>
+                    <Typography gutterBottom variant="h5" component="div">
+                        {card.name}
+                    </Typography>
+                    <Tabs
+                        value={selectedTab}
+                        onChange={handleTabChange}
+                        aria-label="card info tabs"
+                        variant="fullWidth"
+                    >
+                        <Tab label="Details" />
+                        <Tab label="Card Sets" />
+                        <Tab label="Prices" />
+                    </Tabs>
 
-                <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 2 }} />
+                </Box>
 
-                {selectedTab === 0 && (
-                    <Box>
-                        {/* <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
-                            {card.types && card.types.length > 0 && renderProperty('Type', <>{card.types.map((type, index) => <img key={index} src={getEnergyImage(type)} alt={`${type} type`} style={{ width: '20px', height: '20px' }} />)}</>)}
-                            {card.hp && renderProperty('HP', card.hp)}
-                            {card.retreatCost && card.retreatCost.length > 0 && renderProperty('Retreat Cost', <>{card.retreatCost.map((_, index) => <img key={index} src={getEnergyImage('Colorless')} alt="Colorless energy" style={{ width: '20px', height: '20px', margin: '3px' }} />)}</>)}
-                            {card.evolvesFrom && renderProperty('Evolves from', card.evolvesFrom)}
-                            {card.artist && renderProperty('Illustrated By', card.artist)}
-                            {card.nationalPokedexNumbers && card.nationalPokedexNumbers.length > 0 && renderProperty('National Pokédex #', card.nationalPokedexNumbers.join(', '))}
-                            {card.weaknesses && card.weaknesses.map((weakness, index) => (
-                                renderProperty('Weaknesses', <Typography><img key={index} src={getEnergyImage(weakness.type)} alt={`${weakness.type} type icon`} style={{ width: '20px', height: '20px' }} /> {weakness.value}</Typography>)
+                <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
+                    {selectedTab === 0 && (
+                        <Box sx={{ padding: '10px' }} minHeight={imageAdjustedHeight} maxHeight={`calc(100% - ${tabBoxHeight}px)`}>
+                            <Box border={'1px solid #eee'} marginBottom={'20px'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                                {renderProperty('Description', card.desc)}
+                            </Box>
+                            <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                                {renderProperty('Type', card.type)}
+                                {renderProperty('Frame Type', card.frameType)}
+                                {card.atk !== undefined && renderProperty('ATK', card.atk)}
+                                {card.def !== undefined && renderProperty('DEF', card.def)}
+                                {card.level !== undefined && renderProperty('Level', card.level)}
+                                {renderProperty('Race', card.race)}
+                                {renderProperty('Attribute', card.attribute)}
+                            </Box>
+                        </Box>
+                    )}
+
+                    {selectedTab === 1 && (
+                        <Box sx={{ padding: '10px' }} minHeight={imageAdjustedHeight}>
+                            {card.card_sets.map((set, index) => (
+                                <Box key={index} border={'1px solid #eee'} margin={'10px 0'}>
+                                    <Typography variant="h6" component="div" sx={{ textAlign: 'center', my: 2 }}>
+                                        {set.set_name}
+                                    </Typography>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2, padding: '10px' }}>
+                                        {renderProperty('Set Code', set.set_code)}
+                                        {renderProperty('Rarity', set.set_rarity)}
+                                        {renderProperty('Price', set.set_price)}
+                                    </Box>
+                                </Box>
                             ))}
-                            {card.rarity && renderProperty('Rarity', card.rarity)}
                         </Box>
-                        {card.flavorText && <Box border={'1px solid #eee'} padding={'10px'}>
-                            {card.flavorText && card.flavorText}
-                        </Box>} */}
-                    </Box>
-                )}
+                    )}
 
-                {selectedTab === 1 && (
-                    <Box>
-                        {/* {card.abilities && card.abilities.map((ability, index) => (
-                            <Box border={'1px solid #eee'} padding={'10px'} key={index} marginBottom={'20px'}>
-                                <Typography variant="subtitle1">
-                                    <strong>{ability.type}: {ability.name}</strong>
-                                </Typography>
-                                <Typography variant="body2">{ability.text}</Typography>
+                    {selectedTab === 2 && (
+                        <Box sx={{ padding: '10px' }} minHeight={imageAdjustedHeight}>
+                            <Box border={'1px solid #eee'} padding={'10px'}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 2 }}>
+                                    {renderProperty('Cardmarket', card.card_prices[0]?.cardmarket_price)}
+                                    {renderProperty('TCGPlayer', card.card_prices[0]?.tcgplayer_price)}
+                                    {renderProperty('eBay', card.card_prices[0]?.ebay_price)}
+                                    {renderProperty('Amazon', card.card_prices[0]?.amazon_price)}
+                                    {renderProperty('CoolStuffInc', card.card_prices[0]?.coolstuffinc_price)}
+                                </Box>
                             </Box>
-                        ))} */}
-
-                        {/* {card.attacks.map((attack, index) => (
-                            <Box border={'1px solid #eee'} padding={'10px'} key={index}>
-                                <Typography variant="subtitle1">
-                                    {attack.cost.map((energyType, costIndex) => (
-                                        <img
-                                            key={costIndex}
-                                            src={getEnergyImage(energyType)}
-                                            alt={`${energyType} energy`}
-                                            style={{ width: '20px', height: '20px', marginRight: '5px' }}
-                                        />
-                                    ))}
-                                    <strong>{attack.name}</strong>
-                                </Typography>
-                                <Typography variant="body2">{attack.text}</Typography>
-                                {attack.damage && <Typography variant="body2">Damage: {attack.damage}</Typography>}
-                            </Box>
-                        ))} */}
-                    </Box>
-                )}
-
-                {selectedTab === 2 && (
-                    <Box>
-                        <FormControl fullWidth>
-                            <InputLabel id="select-label">Card Type</InputLabel>
-                            <Select
-                                labelId="select-label"
-                                id="simple-select"
-                                value={dropdownValue}
-                                label="Card Type"
-                                onChange={handleDropdownChange}
-                            >
-                                <MenuItem value={'Normal'}>Normal</MenuItem>
-                                <MenuItem value={'Reverse Holo'}>Reverse Holo</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <Box>
-                            {card.card_prices && renderProperty('Average Sell Price', <Typography>{ }</Typography>)}
                         </Box>
-                    </Box>
-                )}
-            </Box>
-        </Card>
+                    )}
+                </Box>
+            </Card>
+        </Box>
     );
 };
 

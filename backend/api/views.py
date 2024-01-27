@@ -52,13 +52,18 @@ class CardListViewSet(viewsets.ModelViewSet):
         sort_field = self.request.query_params.get('sort_field', 'created_on')
         sort_direction = self.request.query_params.get('sort_direction', 'asc')
 
-        if sort_field == 'cards':
-            queryset = queryset.annotate(cards=Count('list_cards'))
-            sort_field = '-cards' if sort_direction == 'desc' else 'cards'
-        elif sort_direction == 'desc':
-            sort_field = '-' + sort_field
+        if sort_field == 'num_cards':
+            queryset = queryset.annotate(num_cards=Count('list_cards'))
+            if sort_direction == 'desc':
+                queryset = queryset.order_by('-num_cards')
+            else:
+                queryset = queryset.order_by('num_cards')
+        else:
+            if sort_direction == 'desc':
+                sort_field = '-' + sort_field
+            queryset = queryset.order_by(sort_field)
 
-        return queryset.order_by(sort_field)
+        return queryset
 
 @api_view(['POST'])
 def add_card_to_list(request):
@@ -66,32 +71,61 @@ def add_card_to_list(request):
         list_id = request.data.get('list_id')
         card_id = request.data.get('card_id')
         card_type = request.data.get('card_type')
+        updated_list = CardList.objects.get(id=list_id)
 
         if card_type == 'pokemon':
             card = PokemonCardData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, pokemon_card=card)
+
+            market_value_increase = 0
+            if card.cardmarket and card.cardmarket.prices:
+                market_value_increase = Decimal(card.cardmarket.prices.get('averageSellPrice', {}))
+
+            updated_list.market_value += market_value_increase
         elif card_type == 'yugioh':
             card = YugiohCard.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, yugioh_card=card)
+
+            print(card)
+            print(card.card_sets.all())
+            print(card.card_prices.all())
+
+            prices = card.card_prices.all()
+            if prices.exists():
+                total_market_price = sum(Decimal(price.cardmarket_price or 0) for price in prices)
+                average_market_price = total_market_price / len(prices)
+                updated_list.market_value += average_market_price
+            else:
+                print("No cardmarket price data available for this card")
         elif card_type == 'mtg':
             card = MTGCardsData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, mtg_card=card)
+
+            print(card)
+            print(card.card_faces.all())
+
+            market_value_increase = 0
+            if card.prices:
+                market_value_increase = Decimal(card.prices.get('usd', {}))
+
+            updated_list.market_value += market_value_increase
         elif card_type == 'lorcana':
             card = LorcanaCardData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, lorcana_card=card)
+
+            print(card)
+
+            market_value_increase = 0
+            if card.cost:
+                market_value_increase = Decimal(card.cost)
+
+            updated_list.market_value += market_value_increase
         else:
             return Response({'error': 'Invalid card type'}, status=400)
 
         list_card.save()
 
-        updated_list = CardList.objects.get(id=list_id)
-        market_value_increase = 0
-        if card.cardmarket and card.cardmarket.prices:
-            market_value_increase = Decimal(card.cardmarket.prices.get('averageSellPrice', {}))
-
-        updated_list.market_value += market_value_increase
         updated_list.save()
-
         card_count = updated_list.list_cards.count()
 
         response_data = {
@@ -139,8 +173,34 @@ def update_card_quantity(request):
             card = YugiohCard.objects.get(id=card_id)
         elif card_type == 'mtg':
             card = MTGCardsData.objects.get(id=card_id)
+            price_change = 0
+            if card.prices:
+                price_change = Decimal(card.prices.get('usd', 0))
+
+            if operation == 'increment':
+                new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
+                new_card.save()
+                updated_list.market_value += price_change
+            elif operation == 'decrement' and list_cards.exists():
+                list_cards.first().delete()
+                updated_list.market_value -= price_change
+            else:
+                return Response({'error': 'Invalid operation'}, status=400)
         elif card_type == 'lorcana':
             card = LorcanaCardData.objects.get(id=card_id)
+            price_change = 0
+            if card.cost:
+                price_change = Decimal(card.cost)
+
+            if operation == 'increment':
+                new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
+                new_card.save()
+                updated_list.market_value += price_change
+            elif operation == 'decrement' and list_cards.exists():
+                list_cards.first().delete()
+                updated_list.market_value -= price_change
+            else:
+                return Response({'error': 'Invalid operation'}, status=400)
         else:
             return Response({'error': 'Invalid card type'}, status=400)
 
@@ -166,10 +226,36 @@ def delete_card_from_list(request):
             logger.error(f"Missing required parameters: list_id={list_id}, card_id={card_id}, card_type={card_type}")
             return Response({'error': 'Missing required parameters'}, status=400)
 
-        card_key = f"{card_type}_card"
+        card_key = f"{card_type}_card_id"
         list_card = ListCard.objects.filter(card_list_id=list_id, **{card_key: card_id}).first()
 
         if list_card:
+            updated_list = CardList.objects.get(id=list_id)
+            
+            market_value_decrease = Decimal(0)
+            if card_type == 'pokemon':
+                card = PokemonCardData.objects.get(id=card_id)
+                if card.cardmarket and card.cardmarket.prices:
+                    market_value_decrease = Decimal(card.cardmarket.prices.get('averageSellPrice', 0))
+            elif card_type == 'yugioh':
+                card = YugiohCard.objects.get(id=card_id)
+                prices = card.card_prices.all()
+                if prices.exists():
+                    total_market_price = sum(Decimal(price.cardmarket_price or 0) for price in prices)
+                    average_market_price = total_market_price / len(prices)
+                    market_value_decrease = average_market_price
+            elif card_type == 'mtg':
+                card = MTGCardsData.objects.get(id=card_id)
+                if card.prices:
+                    market_value_decrease = Decimal(card.prices.get('usd', 0))
+            elif card_type == 'lorcana':
+                card = LorcanaCardData.objects.get(id=card_id)
+                if card.cost:
+                    market_value_decrease = Decimal(card.cost)
+
+            updated_list.market_value -= market_value_decrease
+            updated_list.save()
+            
             list_card.delete()
             return Response({'message': 'Card deleted from list successfully'})
         else:
@@ -178,6 +264,7 @@ def delete_card_from_list(request):
     except Exception as e:
         logger.error(f"Error deleting card from list: {e}")
         return Response({'error': str(e)}, status=500)
+
 
 @api_view(['GET'])
 def get_list_by_id(request, list_id):

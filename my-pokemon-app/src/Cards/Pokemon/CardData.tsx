@@ -102,19 +102,21 @@ export type Weakness = {
     value: string;
 };
 
-export type Tcgplayer = {
-    url: string;
-    updatedAt: string;
-    prices: {
-        normal: Prices;
-        reverseHolofoil: Prices;
-    };
-};
-
-export type Prices = {
+export interface Price {
     low: number;
     mid: number;
     high: number;
     market: number;
     directLow?: number;
-};
+}
+
+export interface TcgplayerPrices {
+    normal: Price;
+    holofoil: Price;
+}
+
+export interface Tcgplayer {
+    url: string;
+    updatedAt: string;
+    prices: TcgplayerPrices;
+}

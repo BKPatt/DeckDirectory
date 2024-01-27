@@ -247,7 +247,7 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
                             <CardMedia
                                 component="img"
                                 height="auto"
-                                image={card.card_images[0]?.image_url_small}
+                                image={card.card_images[0]?.image_url}
                                 alt={card.name}
                             />
                             <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>

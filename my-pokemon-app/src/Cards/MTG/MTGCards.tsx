@@ -52,7 +52,6 @@ const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ sel
                         cardCount[card.id]++;
                     }
                 });
-
                 setCards(uniqueCards);
                 setCardQuantities(cardCount);
                 setTotalPages(response.data.total_pages);
@@ -248,7 +247,7 @@ const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ sel
                             <CardMedia
                                 component="img"
                                 height="auto"
-                                image={card.image_uris?.small || Default}
+                                image={card.image_uris?.large || Default}
                                 alt={card.name}
                             />
                             <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>

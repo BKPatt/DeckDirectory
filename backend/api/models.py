@@ -37,6 +37,9 @@ class YugiohCard(models.Model):
     race = models.CharField(max_length=100)
     attribute = models.CharField(max_length=100)
 
+    def __str__(self):
+        return f"{self.name} (Type: {self.card_type}, ATK: {self.attack}, DEF: {self.defense}, Level: {self.level}, Race: {self.race}, Attribute: {self.attribute})"
+
 class CardSet(models.Model):
     yugioh_card = models.ForeignKey(YugiohCard, related_name='card_sets', on_delete=models.CASCADE)
     set_name = models.CharField(max_length=255)
@@ -45,11 +48,17 @@ class CardSet(models.Model):
     set_rarity_code = models.CharField(max_length=100)
     set_price = models.CharField(max_length=100)
 
+    def __str__(self):
+        return f"{self.set_name} (Code: {self.set_code}, Rarity: {self.set_rarity}, Price: {self.set_price})"
+
 class CardImage(models.Model):
     yugioh_card = models.ForeignKey(YugiohCard, related_name='card_images', on_delete=models.CASCADE)
     image_url = models.URLField()
     image_url_small = models.URLField()
     image_url_cropped = models.URLField()
+
+    def __str__(self):
+        return f"Image URLs - Large: {self.image_url}, Small: {self.image_url_small}, Cropped: {self.image_url_cropped}"
 
 class CardPrice(models.Model):
     yugioh_card = models.ForeignKey(YugiohCard, related_name='card_prices', on_delete=models.CASCADE)
@@ -58,6 +67,9 @@ class CardPrice(models.Model):
     ebay_price = models.CharField(max_length=100)
     amazon_price = models.CharField(max_length=100)
     coolstuffinc_price = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f'CardMarket: {self.cardmarket_price}, TCGPlayer: {self.tcgplayer_price}, eBay: {self.ebay_price}, Amazon: {self.amazon_price}, CoolStuffInc: {self.coolstuffinc_price}'
 
 
 
@@ -70,7 +82,7 @@ class PokemonAbility(models.Model):
     type = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.name
+        return f'Name: {self.name}, Text: {self.text}, Type: {self.type}'
 
 class PokemonAttack(models.Model):
     name = models.CharField(max_length=255)
@@ -80,14 +92,14 @@ class PokemonAttack(models.Model):
     text = models.TextField(null=True)
 
     def __str__(self):
-        return self.name
+        return f'Name: {self.name}, Cost: {self.cost}, ConvertedEnergyCost: {self.convertedEnergyCost}, Damage: {self.damage}, Text: {self.text}'
 
 class PokemonWeakness(models.Model):
     type = models.CharField(max_length=100)
     value = models.CharField(max_length=100)
 
     def __str__(self):
-        return f'{self.type} {self.value}'
+        return f'Type: {self.type}, Value: {self.value}'
 
 class PokemonCardSet(models.Model):
     id = models.CharField(max_length=100, primary_key=True)
@@ -102,17 +114,23 @@ class PokemonCardSet(models.Model):
     images = models.JSONField()
 
     def __str__(self):
-        return self.name
+        return f'ID: {self.id}, Name: {self.name}, Series: {self.series}, PrintedTotal: {self.printedTotal}, Total: {self.total}, Legalities: {self.legalities}, PtcgoCode: {self.ptcgoCode}, ReleaseDate: {self.releaseDate}, UpdatedAt: {self.updatedAt}, Images: {self.images}'
 
 class PokemonTcgplayer(models.Model):
     url = models.URLField(max_length=255)
     updatedAt = models.DateTimeField(null=True)
     prices = models.JSONField()
 
+    def __str__(self):
+        return f'URL: {self.url}, UpdatedAt: {self.updatedAt}, Prices: {self.prices}'
+
 class PokemonCardmarket(models.Model):
     url = models.URLField(max_length=255)
     updatedAt = models.DateTimeField(null=True)
     prices = models.JSONField()
+
+    def __str__(self):
+        return f'URL: {self.url}, UpdatedAt: {self.updatedAt}, Prices: {self.prices}'
 
 class PokemonCardData(models.Model):
     id = models.CharField(max_length=100, primary_key=True)
@@ -141,7 +159,15 @@ class PokemonCardData(models.Model):
     cardmarket = models.ForeignKey(PokemonCardmarket, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return self.name
+        return (f'ID: {self.id}, Name: {self.name}, Supertype: {self.supertype}, Subtypes: {self.subtypes}, '
+                f'Level: {self.level}, HP: {self.hp}, Types: {self.types}, EvolvesFrom: {self.evolvesFrom}, '
+                f'Abilities: {[ability.name for ability in self.abilities.all()]}, Attacks: {[attack.name for attack in self.attacks.all()]}, '
+                f'Weaknesses: {[weakness.type for weakness in self.weaknesses.all()]}, RetreatCost: {self.retreatCost}, '
+                f'ConvertedRetreatCost: {self.convertedRetreatCost}, Set: {self.set.name}, Rules: {self.rules}, '
+                f'Number: {self.number}, Artist: {self.artist}, Rarity: {self.rarity}, FlavorText: {self.flavorText}, '
+                f'NationalPokedexNumbers: {self.nationalPokedexNumbers}, Legalities: {self.legalities}, '
+                f'Images: {self.images}, Tcgplayer: {self.tcgplayer.url if self.tcgplayer else None}, '
+                f'Cardmarket: {self.cardmarket.url if self.cardmarket else None}')
 
 
 
@@ -165,7 +191,7 @@ class LorcanaCardData(models.Model):
     set_id = models.CharField(max_length=200)
 
     def __str__(self):
-        return self.name
+        return f"Artist: {self.artist}, Set Name: {self.set_name}, Set Num: {self.set_num}, Color: {self.color}, Image: {self.image}, Cost: {self.cost}, Inkable: {self.inkable}, Name: {self.name}, Type: {self.type}, Rarity: {self.rarity}, Flavor Text: {self.flavor_text}, Card Num: {self.card_num}, Body Text: {self.body_text}, Set ID: {self.set_id}"
     
 
 
@@ -180,7 +206,7 @@ class MTGRelatedCard(models.Model):
     uri = models.URLField()
 
     def __str__(self):
-        return self.name
+        return f"ID: {self.id}, Component: {self.component}, Name: {self.name}, Type Line: {self.type_line}, URI: {self.uri}"
 
 class MTGCardsData(models.Model):
     id = models.CharField(max_length=100, primary_key=True)
@@ -207,7 +233,7 @@ class MTGCardsData(models.Model):
     all_parts = models.ManyToManyField(MTGRelatedCard, blank=True)
 
     def __str__(self):
-        return self.name
+        return f"ID: {self.id}, Oracle ID: {self.oracle_id}, Name: {self.name}, Language: {self.lang}, Released At: {self.released_at}, URI: {self.uri}, Layout: {self.layout}, CMC: {self.cmc}, Type Line: {self.type_line}, Color Identity: {self.color_identity}, Keywords: {self.keywords}, Legalities: {self.legalities}, Games: {self.games}, Set: {self.set}, Set Name: {self.set_name}, Set Type: {self.set_type}, Rarity: {self.rarity}, Artist: {self.artist}, Prices: {self.prices}, Related URIs: {self.related_uris}"
     
 class MTGCardFace(models.Model):
     card = models.ForeignKey(MTGCardsData, on_delete=models.CASCADE, related_name='card_faces')
@@ -224,7 +250,7 @@ class MTGCardFace(models.Model):
     image_uris = models.JSONField()
 
     def __str__(self):
-        return self.name
+        return f"ID: {self.id}, Oracle ID: {self.oracle_id}, Name: {self.name}, Mana Cost: {self.mana_cost}, Type Line: {self.type_line}, Oracle Text: {self.oracle_text}, Colors: {self.colors}, Power: {self.power}, Toughness: {self.toughness}, Artist: {self.artist}"
     
 
 
@@ -238,6 +264,9 @@ class ListCard(models.Model):
     mtg_card = models.ForeignKey(MTGCardsData, on_delete=models.SET_NULL, null=True, blank=True)
     lorcana_card = models.ForeignKey(LorcanaCardData, on_delete=models.SET_NULL, null=True, blank=True)
     market_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
+    def __str__(self):
+        return f"Card List: {self.card_list}, Pokemon Card: {self.pokemon_card}, Yugioh Card: {self.yugioh_card}, MTG Card: {self.mtg_card}, Lorcana Card: {self.lorcana_card}, Market Value: {self.market_value}"
 
     @property
     def card_market_value(self):
