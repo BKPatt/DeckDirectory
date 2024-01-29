@@ -20,6 +20,7 @@ export type CardData = {
     flavorText: string;
     nationalPokedexNumbers: number[];
     legalities: Legalities;
+    count: number
     images: {
         small: string;
         large: string;

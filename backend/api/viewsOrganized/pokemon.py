@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from ..models import PokemonCardData
 from django.core.paginator import Paginator, EmptyPage
 from django.http import JsonResponse
-from django.db.models import FloatField, Value, ExpressionWrapper, F, Func
+from django.db.models import FloatField, Value, ExpressionWrapper, F, Func, Count
 from django.db.models.functions import Coalesce
 
 class JsonbExtractPathCast(Func):
@@ -41,7 +41,8 @@ def get_pokemon_cards_by_list(request, list_id):
             combined_average_price=ExpressionWrapper(
                 F('tcgplayer_market') + F('cardmarket_market'),
                 output_field=FloatField()
-            )
+            ),
+            card_count=Count('id')
         )
 
         if search_term:
@@ -66,83 +67,93 @@ def get_pokemon_cards_by_list(request, list_id):
                 cards_query = cards_query.order_by('combined_average_price')
             elif sort_by == 'price_desc':
                 cards_query = cards_query.order_by('-combined_average_price')
+        else:
+            cards_query = cards_query.order_by('set__releaseDate')
 
         paginator = Paginator(cards_query, page_size)
+        print("Paginator created.")
         try:
             current_page = paginator.page(page)
+            print(f"Current Page: {current_page}")
         except EmptyPage:
+            print("EmptyPage exception caught.")
             return Response({'error': 'Page not found'}, status=404)
         
         serialized_data = []
         for card in current_page:
-            card_data = {
-                'id': card.id,
-                'name': card.name,
-                'supertype': card.supertype,
-                'subtypes': card.subtypes,
-                'level': card.level,
-                'hp': card.hp,
-                'types': card.types,
-                'evolvesFrom': card.evolvesFrom,
-                'retreatCost': card.retreatCost,
-                'convertedRetreatCost': card.convertedRetreatCost,
-                'number': card.number,
-                'artist': card.artist,
-                'rarity': card.rarity,
-                'flavorText': card.flavorText,
-                'nationalPokedexNumbers': card.nationalPokedexNumbers,
-                'legalities': card.legalities,
-                'images': card.images,
-                'tcgplayer': {
-                    'url': card.tcgplayer.url,
-                    'updatedAt': card.tcgplayer.updatedAt,
-                    'prices': card.tcgplayer.prices
-                } if card.tcgplayer else None,
-                'cardmarket': {
-                    'url': card.cardmarket.url,
-                    'updatedAt': card.cardmarket.updatedAt,
-                    'prices': card.cardmarket.prices
-                } if card.cardmarket else None,
-                'abilities': [
-                    {
-                        'name': ability.name,
-                        'text': ability.text,
-                        'type': ability.type
-                    }
-                    for ability in card.abilities.all()
-                ],
-                'attacks': [
-                    {
-                        'name': attack.name,
-                        'cost': attack.cost,
-                        'convertedEnergyCost': attack.convertedEnergyCost,
-                        'damage': attack.damage,
-                        'text': attack.text
-                    }
-                    for attack in card.attacks.all()
-                ],
-                'weaknesses': [
-                    {
-                        'type': weakness.type,
-                        'value': weakness.value
-                    }
-                    for weakness in card.weaknesses.all()
-                ],
-                'set': {
-                    'id': card.set.id,
-                    'name': card.set.name,
-                    'series': card.set.series,
-                    'printedTotal': card.set.printedTotal,
-                    'total': card.set.total,
-                    'legalities': card.set.legalities,
-                    'ptcgoCode': card.set.ptcgoCode,
-                    'releaseDate': card.set.releaseDate,
-                    'updatedAt': card.set.updatedAt,
-                    'images': card.set.images
-                } if card.set else None,
-            }
-            serialized_data.append(card_data)
+            try:
+                card_data = {
+                    'id': card.id,
+                    'name': card.name,
+                    'supertype': card.supertype,
+                    'subtypes': card.subtypes,
+                    'level': card.level,
+                    'hp': card.hp,
+                    'types': card.types,
+                    'evolvesFrom': card.evolvesFrom,
+                    'retreatCost': card.retreatCost,
+                    'convertedRetreatCost': card.convertedRetreatCost,
+                    'number': card.number,
+                    'artist': card.artist,
+                    'rarity': card.rarity,
+                    'flavorText': card.flavorText,
+                    'nationalPokedexNumbers': card.nationalPokedexNumbers,
+                    'legalities': card.legalities,
+                    'images': card.images,
+                    'count': card.card_count,
+                    'tcgplayer': {
+                        'url': card.tcgplayer.url,
+                        'updatedAt': card.tcgplayer.updatedAt,
+                        'prices': card.tcgplayer.prices
+                    } if card.tcgplayer else None,
+                    'cardmarket': {
+                        'url': card.cardmarket.url,
+                        'updatedAt': card.cardmarket.updatedAt,
+                        'prices': card.cardmarket.prices
+                    } if card.cardmarket else None,
+                    'abilities': [
+                        {
+                            'name': ability.name,
+                            'text': ability.text,
+                            'type': ability.type
+                        }
+                        for ability in card.abilities.all()
+                    ],
+                    'attacks': [
+                        {
+                            'name': attack.name,
+                            'cost': attack.cost,
+                            'convertedEnergyCost': attack.convertedEnergyCost,
+                            'damage': attack.damage,
+                            'text': attack.text
+                        }
+                        for attack in card.attacks.all()
+                    ],
+                    'weaknesses': [
+                        {
+                            'type': weakness.type,
+                            'value': weakness.value
+                        }
+                        for weakness in card.weaknesses.all()
+                    ],
+                    'set': {
+                        'id': card.set.id,
+                        'name': card.set.name,
+                        'series': card.set.series,
+                        'printedTotal': card.set.printedTotal,
+                        'total': card.set.total,
+                        'legalities': card.set.legalities,
+                        'ptcgoCode': card.set.ptcgoCode,
+                        'releaseDate': card.set.releaseDate,
+                        'updatedAt': card.set.updatedAt,
+                        'images': card.set.images
+                    } if card.set else None,
+                }
+                serialized_data.append(card_data)
+            except Exception as e:
+                print(f"Error serializing card with ID {card['id']}: {e}")
 
+        print("Data serialization complete.")
         return JsonResponse({
             'data': serialized_data,
             'total_pages': paginator.num_pages,
@@ -213,7 +224,6 @@ def pokemon_cards_api(request):
 
         if search_term:
             cards_query = cards_query.filter(name__icontains=search_term)
-
         if supertype_filter:
             cards_query = cards_query.filter(supertype=supertype_filter)
         if subtype_filter:

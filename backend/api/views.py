@@ -147,6 +147,8 @@ def update_card_quantity(request):
         card_type = request.data.get('card_type')
         operation = request.data.get('operation')
 
+        updated_list = CardList.objects.get(id=list_id)
+
         if not all([list_id, card_id, card_type, operation]):
             logger.error(f"Missing required parameters: list_id={list_id}, card_id={card_id}, card_type={card_type}, operation={operation}")
             return Response({'error': 'Missing required parameters'}, status=400)
@@ -154,57 +156,36 @@ def update_card_quantity(request):
         card_key = f"{card_type}_card_id"
         list_cards = ListCard.objects.filter(card_list_id=list_id, **{card_key: card_id})
 
+        price_change = Decimal(0)
         if card_type == 'pokemon':
             card = PokemonCardData.objects.get(id=card_id)
-            price_change = 0
             if card.cardmarket and card.cardmarket.prices:
                 price_change = Decimal(card.cardmarket.prices.get('averageSellPrice', 0))
-
-            if operation == 'increment':
-                new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
-                new_card.save()
-                updated_list.market_value += price_change
-            elif operation == 'decrement' and list_cards.exists():
-                list_cards.first().delete()
-                updated_list.market_value -= price_change
-            else:
-                return Response({'error': 'Invalid operation'}, status=400)
         elif card_type == 'yugioh':
             card = YugiohCard.objects.get(id=card_id)
+            prices = card.card_prices.all()
+            if prices.exists():
+                total_market_price = sum(Decimal(price.cardmarket_price or 0) for price in prices)
+                price_change = total_market_price / len(prices) if len(prices) > 0 else 0
         elif card_type == 'mtg':
             card = MTGCardsData.objects.get(id=card_id)
-            price_change = 0
             if card.prices:
                 price_change = Decimal(card.prices.get('usd', 0))
-
-            if operation == 'increment':
-                new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
-                new_card.save()
-                updated_list.market_value += price_change
-            elif operation == 'decrement' and list_cards.exists():
-                list_cards.first().delete()
-                updated_list.market_value -= price_change
-            else:
-                return Response({'error': 'Invalid operation'}, status=400)
         elif card_type == 'lorcana':
             card = LorcanaCardData.objects.get(id=card_id)
-            price_change = 0
             if card.cost:
                 price_change = Decimal(card.cost)
 
-            if operation == 'increment':
-                new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
-                new_card.save()
-                updated_list.market_value += price_change
-            elif operation == 'decrement' and list_cards.exists():
-                list_cards.first().delete()
-                updated_list.market_value -= price_change
-            else:
-                return Response({'error': 'Invalid operation'}, status=400)
+        if operation == 'increment':
+            new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
+            new_card.save()
+            updated_list.market_value += price_change
+        elif operation == 'decrement' and list_cards.exists():
+            list_cards.first().delete()
+            updated_list.market_value -= price_change
         else:
-            return Response({'error': 'Invalid card type'}, status=400)
+            return Response({'error': 'Invalid operation'}, status=400)
 
-        updated_list = CardList.objects.get(id=list_id)
         updated_list.save()
         return Response({'message': 'Card quantity updated successfully'})
 
@@ -214,6 +195,7 @@ def update_card_quantity(request):
     except Exception as e:
         logger.error(f"Error updating card quantity: {e}")
         return Response({'error': str(e)}, status=500)
+
     
 @api_view(['DELETE'])
 def delete_card_from_list(request):

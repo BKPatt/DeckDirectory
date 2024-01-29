@@ -69,7 +69,6 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
                 </Box>
             );
         }
-
         return null;
     };
 
@@ -86,7 +85,6 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
                 </Box>
             );
         }
-
         return null;
     };
 

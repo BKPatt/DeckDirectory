@@ -1,7 +1,7 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem, FormControl, InputLabel, TextField, SelectChangeEvent, InputAdornment } from '@mui/material';
-import { CardData, EnergyType, Tcgplayer } from './CardData';
+import { CardData, Tcgplayer } from './CardData';
 import CardInfo from './PokemonCardInfo';
 import { CardList, useList } from '../../Types/CardList'
 import SearchIcon from '@mui/icons-material/Search';
@@ -117,20 +117,26 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
                     return card as CardData;
                 });
 
-                const uniqueCards: CardData[] = [];
-                const cardCount: { [key: string]: number } = {};
-
-                fetchedCards.forEach((card: CardData) => {
-                    if (!cardCount[card.id]) {
-                        uniqueCards.push(card);
-                        cardCount[card.id] = 1;
+                const uniqueCardsMap = new Map<string, CardData>();
+                fetchedCards.forEach(card => {
+                    if (!uniqueCardsMap.has(card.id)) {
+                        uniqueCardsMap.set(card.id, { ...card });
                     } else {
-                        cardCount[card.id]++;
+                        const existingCard = uniqueCardsMap.get(card.id)!;
+                        existingCard.count += card.count;
+                        uniqueCardsMap.set(card.id, existingCard);
                     }
                 });
 
+                const uniqueCards = Array.from(uniqueCardsMap.values());
+
+                const quantities: { [key: string]: number } = {};
+                uniqueCards.forEach(card => {
+                    quantities[card.id] = card.count;
+                });
+
                 setCards(uniqueCards);
-                setCardQuantities(cardCount);
+                setCardQuantities(quantities);
                 setTotalPages(response.data.total_pages);
             } else {
                 console.error('Unexpected response format');
@@ -423,17 +429,16 @@ const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> 
                     renderInput={(params) => <TextField {...params} label="Sort By" />}
                 />
             </FormControl>
-
             <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
             <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
             <Grid container spacing={2}>
-                {Array.isArray(cards) && cards.map((card, index) => (
+                {cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                         <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>
                             <CardMedia
                                 component="img"
                                 height="auto"
-                                image={card.images.small}
+                                image={card.images.large}
                                 alt={card.name}
                             />
                             <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
