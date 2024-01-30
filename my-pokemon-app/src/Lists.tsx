@@ -364,22 +364,22 @@ const Lists = () => {
     switch (selectedList?.type) {
         case 'Pokemon':
             addCardsDialogContent = (
-                <PokemonCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
+                <PokemonCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListQuantityChange={fetchAllLists} />
             );
             break;
         case 'MTG':
             addCardsDialogContent = (
-                <MTGCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
+                <MTGCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListQuantityChange={fetchAllLists} />
             );
             break;
         case 'Yu-Gi-Oh!':
             addCardsDialogContent = (
-                <YugiohCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
+                <YugiohCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListQuantityChange={fetchAllLists} />
             );
             break;
         case 'Lorcana':
             addCardsDialogContent = (
-                <LorcanaCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListUpdate={fetchAllLists} />
+                <LorcanaCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListQuantityChange={fetchAllLists} />
             );
             break;
         case 'Baseball':

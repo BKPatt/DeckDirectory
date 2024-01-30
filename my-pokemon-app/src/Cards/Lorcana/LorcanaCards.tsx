@@ -11,7 +11,7 @@ type LorcanaCardsProps = {
     isInAddMode?: boolean;
 };
 
-const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
+const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
     const [cards, setCards] = useState<LorcanaCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -120,6 +120,10 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
         fetchFilterOptions();
     }, []);
 
+    const handleCardQuantityChange = async () => {
+        onListQuantityChange?.();
+    };
+
     const handleListUpdate = async () => {
         const updatedList = await fetchListData();
         if (updatedList && listData) {
@@ -163,17 +167,17 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
         }
     };
 
-    const incrementCardQuantity = (card: LorcanaCardData) => {
+    const incrementCardQuantity = async (card: LorcanaCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
             [card.id]: (prevQuantities[card.id] || 0) + 1
         }));
         updateCardQuantity(card.id.toString(), 'increment');
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const decrementCardQuantity = (card: LorcanaCardData) => {
+    const decrementCardQuantity = async (card: LorcanaCardData) => {
         setCardQuantities(prevQuantities => {
             if (prevQuantities[card.id] > 1) {
                 updateCardQuantity(card.id.toString(), 'decrement');
@@ -182,15 +186,15 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
             return prevQuantities;
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const handleDeleteCard = (card: LorcanaCardData) => {
+    const handleDeleteCard = async (card: LorcanaCardData) => {
         deleteCardFromList(card.id.toString()).then(() => {
             fetchData(currentPage);
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
     const deleteCardFromList = async (cardId: string) => {

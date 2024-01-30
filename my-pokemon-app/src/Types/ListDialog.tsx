@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box } from '@mui/material';
 import PokemonCards from '../Cards/Pokemon/PokemonCards';
 import MTGCards from '../Cards/MTG/MTGCards';
 import YugiohCards from '../Cards/Yugioh/YugiohCards';
@@ -10,6 +10,7 @@ import BasketballCards from '../Cards/BasketballCards';
 import HockeyCards from '../Cards/HockeyCards';
 import CardType from './CardType';
 import { CardList, useList } from './CardList';
+import axios from 'axios';
 
 interface ListDialogProps {
     list: CardList | null;
@@ -20,14 +21,27 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [currentList, setCurrentList] = useState<CardList | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
-    const { updateListInDatabase } = useList();
+    const { listData, updateListInDatabase } = useList();
 
     useEffect(() => {
         if (list) {
             setCurrentList(list);
             setEditedTitle(list.name);
         }
-    }, [list]);
+    }, [list, listData]);
+
+    const fetchUpdatedList = async () => {
+        if (currentList) {
+            try {
+                const response = await axios.get(`http://localhost:8000/api/get-list-by-id/${currentList.id}/`);
+                if (response.data) {
+                    setCurrentList(response.data.card_list);
+                }
+            } catch (error) {
+                console.error('Error fetching updated list:', error);
+            }
+        }
+    };
 
     const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setEditedTitle(event.target.value);
@@ -37,7 +51,6 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
         if (event.key === 'Enter') {
             event.preventDefault();
             setIsEditing(false);
-
             if (currentList) {
                 const updatedList = { ...currentList, name: editedTitle };
                 await updateListInDatabase(currentList.id, updatedList);
@@ -49,13 +62,37 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const renderCardContent = (listType: CardType) => {
         switch (listType) {
             case 'Pokemon':
-                return <PokemonCards selectedListId={currentList?.id} isInAddMode={false} />;
+                return (
+                    <PokemonCards
+                        selectedListId={currentList?.id}
+                        isInAddMode={false}
+                        onListQuantityChange={fetchUpdatedList}
+                    />
+                );
             case 'MTG':
-                return <MTGCards selectedListId={currentList?.id} isInAddMode={false} />;
+                return (
+                    <MTGCards
+                        selectedListId={currentList?.id}
+                        isInAddMode={false}
+                        onListQuantityChange={fetchUpdatedList}
+                    />
+                );
             case 'Yu-Gi-Oh!':
-                return <YugiohCards selectedListId={currentList?.id} isInAddMode={false} />;
+                return (
+                    <YugiohCards
+                        selectedListId={currentList?.id}
+                        isInAddMode={false}
+                        onListQuantityChange={fetchUpdatedList}
+                    />
+                );
             case 'Lorcana':
-                return <LorcanaCards selectedListId={currentList?.id} isInAddMode={false} />;
+                return (
+                    <LorcanaCards
+                        selectedListId={currentList?.id}
+                        isInAddMode={false}
+                        onListQuantityChange={fetchUpdatedList}
+                    />
+                );
             case 'Baseball':
                 return <BaseballCards />;
             case 'Football':
@@ -72,18 +109,29 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     return (
         <Dialog open={Boolean(currentList)} onClose={onClose} fullWidth maxWidth="lg">
             <DialogTitle textAlign="center" marginBottom={'15px'} onClick={() => setIsEditing(true)}>
-                {isEditing ? (
-                    <TextField
-                        fullWidth
-                        autoFocus
-                        value={editedTitle}
-                        onChange={handleTitleChange}
-                        onKeyDown={handleKeyDown}
-                        onBlur={() => setIsEditing(false)}
-                    />
-                ) : (
-                    currentList ? currentList.name : ''
-                )}
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Box>
+                        {isEditing ? (
+                            <TextField
+                                fullWidth
+                                autoFocus
+                                value={editedTitle}
+                                onChange={handleTitleChange}
+                                onKeyDown={handleKeyDown}
+                                onBlur={() => setIsEditing(false)}
+                            />
+                        ) : (
+                            currentList ? currentList.name : ''
+                        )}
+                    </Box>
+                    <Box>
+                        {currentList && (
+                            <Box style={{ textAlign: 'right', marginRight: '10px' }}>
+                                Market Value: ${currentList.market_value}
+                            </Box>
+                        )}
+                    </Box>
+                </Box>
             </DialogTitle>
             <DialogContent>
                 {currentList && (

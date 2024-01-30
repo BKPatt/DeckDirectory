@@ -11,7 +11,7 @@ type YugiohCardsProps = {
     isInAddMode?: boolean;
 };
 
-const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
+const YugiohCards: React.FC<YugiohCardsProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
     const [cards, setCards] = useState<YugiohCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -108,6 +108,10 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
         fetchFilterOptions();
     }, []);
 
+    const handleCardQuantityChange = async () => {
+        onListQuantityChange?.();
+    };
+
     const handleAddCard = async (card: YugiohCardData) => {
         if (selectedListId) {
             try {
@@ -169,17 +173,17 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
         }
     };
 
-    const incrementCardQuantity = (card: YugiohCardData) => {
+    const incrementCardQuantity = async (card: YugiohCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
             [card.id]: (prevQuantities[card.id] || 0) + 1
         }));
         updateCardQuantity(card.id.toString(), 'increment');
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const decrementCardQuantity = (card: YugiohCardData) => {
+    const decrementCardQuantity = async (card: YugiohCardData) => {
         setCardQuantities(prevQuantities => {
             if (prevQuantities[card.id] > 1) {
                 updateCardQuantity(card.id.toString(), 'decrement');
@@ -188,15 +192,15 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
             return prevQuantities;
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const handleDeleteCard = (card: YugiohCardData) => {
+    const handleDeleteCard = async (card: YugiohCardData) => {
         deleteCardFromList(card.id.toString()).then(() => {
             fetchData(currentPage);
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
     const deleteCardFromList = async (cardId: string) => {

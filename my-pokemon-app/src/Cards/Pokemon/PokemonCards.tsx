@@ -8,7 +8,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import Autocomplete from '@mui/material/Autocomplete';
 import { SortOptionType, OptionType, CardProps } from '../../Types/Options';
 
-const PokemonCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
+const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
     const [cards, setCards] = useState<CardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -24,6 +24,7 @@ const PokemonCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ sel
         { label: 'Price Descending', value: 'price_desc' },
     ];
     const { listData, updateListData } = useList();
+    const { fetchUpdatedListDetails } = useList();
     const [filterOptions, setFilterOptions] = useState<{
         types: OptionType[];
         subtypes: OptionType[];
@@ -160,6 +161,10 @@ const PokemonCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ sel
         fetchFilterOptions();
     }, []);
 
+    const handleCardQuantityChange = async () => {
+        onListQuantityChange?.();
+    };
+
     const handleAddCard = async (card: CardData) => {
         if (selectedListId) {
             try {
@@ -221,17 +226,21 @@ const PokemonCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ sel
         }
     };
 
-    const incrementCardQuantity = (card: CardData) => {
+    const incrementCardQuantity = async (card: CardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
             [card.id]: (prevQuantities[card.id] || 0) + 1
         }));
-        updateCardQuantity(card.id, 'increment');
-        handleListUpdate();
-        onListUpdate?.();
+
+        await updateCardQuantity(card.id, 'increment');
+        if (selectedListId) {
+            await fetchUpdatedListDetails(selectedListId);
+        }
+        await handleCardQuantityChange();
     };
 
-    const decrementCardQuantity = (card: CardData) => {
+
+    const decrementCardQuantity = async (card: CardData) => {
         setCardQuantities(prevQuantities => {
             if (prevQuantities[card.id] > 1) {
                 updateCardQuantity(card.id, 'decrement');
@@ -240,15 +249,15 @@ const PokemonCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ sel
             return prevQuantities;
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const handleDeleteCard = (card: CardData) => {
+    const handleDeleteCard = async (card: CardData) => {
         deleteCardFromList(card.id).then(() => {
             fetchData(currentPage);
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
     const deleteCardFromList = async (cardId: string) => {

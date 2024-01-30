@@ -8,7 +8,7 @@ import MTGCardInfo from './MTGCardInfo';
 import { SortOptionType, OptionType, CardProps } from '../../Types/Options';
 import SearchIcon from '@mui/icons-material/Search';
 
-const MTGCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
+const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
     const [cards, setCards] = useState<MTGCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -96,6 +96,10 @@ const MTGCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selecte
         fetchFilterOptions();
     }, []);
 
+    const handleCardQuantityChange = async () => {
+        onListQuantityChange?.();
+    };
+
     const handleListUpdate = async () => {
         const updatedList = await fetchListData();
         if (updatedList && listData) {
@@ -139,17 +143,17 @@ const MTGCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selecte
         }
     };
 
-    const incrementCardQuantity = (card: MTGCardData) => {
+    const incrementCardQuantity = async (card: MTGCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
             [card.id]: (prevQuantities[card.id] || 0) + 1
         }));
         updateCardQuantity(card.id, 'increment');
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const decrementCardQuantity = (card: MTGCardData) => {
+    const decrementCardQuantity = async (card: MTGCardData) => {
         setCardQuantities(prevQuantities => {
             if (prevQuantities[card.id] > 1) {
                 updateCardQuantity(card.id, 'decrement');
@@ -158,15 +162,15 @@ const MTGCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selecte
             return prevQuantities;
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
-    const handleDeleteCard = (card: MTGCardData) => {
+    const handleDeleteCard = async (card: MTGCardData) => {
         deleteCardFromList(card.id).then(() => {
             fetchData(currentPage);
         });
         handleListUpdate();
-        onListUpdate?.();
+        await handleCardQuantityChange();
     };
 
     const deleteCardFromList = async (cardId: string) => {

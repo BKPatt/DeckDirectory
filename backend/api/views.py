@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from rest_framework import viewsets
 from .models import CardList, LorcanaCardData, MTGCardsData, YugiohCard, PokemonCardData, ListCard
@@ -11,6 +11,27 @@ from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count
+
+def calculate_average_price(prices):
+    if not prices:
+        return Decimal('0.00')
+
+    prices = sorted(Decimal(str(price)) for price in prices if price)
+    mid_index = len(prices) // 2
+    Q1 = prices[mid_index // 2] if len(prices) % 2 else (prices[mid_index // 2 - 1] + prices[mid_index // 2]) / 2
+    Q3 = prices[-(mid_index // 2) - 1] if len(prices) % 2 else (prices[-(mid_index // 2) - 1] + prices[-(mid_index // 2)]) / 2
+    IQR = Q3 - Q1
+
+    lower_bound = Q1 - (Decimal('1.5') * IQR)
+    upper_bound = Q3 + (Decimal('1.5') * IQR)
+    filtered_prices = [price for price in prices if lower_bound <= price <= upper_bound]
+
+    try:
+        average = sum(filtered_prices) / Decimal(len(filtered_prices))
+    except (InvalidOperation, ZeroDivisionError, TypeError):
+        average = Decimal('0.00')
+
+    return average
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env_file = BASE_DIR / '.env'
@@ -88,11 +109,23 @@ def add_card_to_list(request):
 
             prices = card.card_prices.all()
             if prices.exists():
-                total_market_price = sum(Decimal(price.cardmarket_price or 0) for price in prices)
-                average_market_price = total_market_price / len(prices)
+                price_values = []
+                for price in prices:
+                    if price.cardmarket_price:
+                        price_values.append(Decimal(price.cardmarket_price))
+                    if price.ebay_price:
+                        price_values.append(Decimal(price.ebay_price))
+                    if price.amazon_price:
+                        price_values.append(Decimal(price.amazon_price))
+                    if price.tcgplayer_price:
+                        price_values.append(Decimal(price.tcgplayer_price))
+                    if price.coolstuffinc_price:
+                        price_values.append(Decimal(price.coolstuffinc_price))
+
+                average_market_price = calculate_average_price(price_values)
                 updated_list.market_value += average_market_price
             else:
-                print("No cardmarket price data available for this card")
+                print("No price data available for this card")
         elif card_type == 'mtg':
             card = MTGCardsData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, mtg_card=card)
@@ -158,8 +191,22 @@ def update_card_quantity(request):
             card = YugiohCard.objects.get(id=card_id)
             prices = card.card_prices.all()
             if prices.exists():
-                total_market_price = sum(Decimal(price.cardmarket_price or 0) for price in prices)
-                price_change = total_market_price / len(prices) if len(prices) > 0 else 0
+                price_values = []
+                for price in prices:
+                    if price.cardmarket_price:
+                        price_values.append(Decimal(price.cardmarket_price))
+                    if price.ebay_price:
+                        price_values.append(Decimal(price.ebay_price))
+                    if price.amazon_price:
+                        price_values.append(Decimal(price.amazon_price))
+                    if price.tcgplayer_price:
+                        price_values.append(Decimal(price.tcgplayer_price))
+                    if price.coolstuffinc_price:
+                        price_values.append(Decimal(price.coolstuffinc_price))
+
+                price_change = calculate_average_price(price_values)
+            else:
+                price_change = Decimal('0.00')
         elif card_type == 'mtg':
             card = MTGCardsData.objects.get(id=card_id)
             if card.prices:
@@ -239,7 +286,6 @@ def delete_card_from_list(request):
     except Exception as e:
         logger.error(f"Error deleting card from list: {e}")
         return Response({'error': str(e)}, status=500)
-
 
 @api_view(['GET'])
 def get_list_by_id(request, list_id):
