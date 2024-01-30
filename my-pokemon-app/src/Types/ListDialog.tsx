@@ -25,10 +25,8 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
 
     useEffect(() => {
         if (list) {
-            setCurrentList(list);
-            if (currentList) {
-                setEditedTitle(currentList.name);
-            }
+            setCurrentList(list)
+            setEditedTitle(list.name);
         }
     }, []);
 
