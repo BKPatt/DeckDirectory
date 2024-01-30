@@ -3,61 +3,113 @@ from ..models import LorcanaCardData, ListCard
 from django.core.paginator import Paginator, EmptyPage
 from rest_framework.response import Response
 from django.http import JsonResponse
+from django.db.models import Q, Count
+from django.db.models.functions import Lower
 
 @api_view(['GET'])
 def get_lorcana_cards_by_list(request, list_id):
-    page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 20))
-    search_term = request.GET.get('search', '')
-
-    list_cards = ListCard.objects.filter(card_list_id=list_id, lorcana_card__isnull=False).select_related('lorcana_card')
-    lorcana_cards = [lc.lorcana_card for lc in list_cards]
-
-    if search_term:
-        lorcana_cards = [card for card in lorcana_cards if search_term.lower() in card.name.lower()]
-
-    paginator = Paginator(lorcana_cards, page_size)
     try:
-        current_page = paginator.page(page)
-    except EmptyPage:
-        return Response({'error': 'Page not found'}, status=404)
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        search_term = request.GET.get('search', '')
+        color = request.GET.get('color', None)
+        rarity = request.GET.get('rarity', None)
+        set_name = request.GET.get('set_name', None)
+        sort_option = request.GET.get('sort', None)
 
-    serialized_data = []
-    for card in current_page:
-        card_data = {
-            'id': card.id,
-            'name': card.name,
-            'artist': card.artist,
-            'set_name': card.set_name,
-            'set_num': card.set_num,
-            'color': card.color,
-            'image': card.image,
-            'cost': card.cost,
-            'inkable': card.inkable,
-            'type': card.type,
-            'rarity': card.rarity,
-            'flavor_text': card.flavor_text,
-            'card_num': card.card_num,
-            'body_text': card.body_text,
-            'set_id': card.set_id,
-        }
-        serialized_data.append(card_data)
+        list_cards_query = ListCard.objects.filter(card_list_id=list_id, lorcana_card__isnull=False)
+        
+        if search_term:
+            list_cards_query = list_cards_query.filter(lorcana_card__name__icontains=search_term)
+        if color:
+            list_cards_query = list_cards_query.filter(lorcana_card__color__icontains=color)
+        if rarity:
+            list_cards_query = list_cards_query.filter(lorcana_card__rarity=rarity)
+        if set_name:
+            list_cards_query = list_cards_query.filter(lorcana_card__set_name__icontains=set_name)
 
-    return JsonResponse({
-        'data': serialized_data,
-        'total_pages': paginator.num_pages
-    })
+        if sort_option == 'name_asc':
+            sort_by = 'lorcana_card__name'
+        elif sort_option == 'name_desc':
+            sort_by = '-lorcana_card__name'
+        elif sort_option == 'price_asc':
+            sort_by = 'lorcana_card__cost'
+        elif sort_option == 'price_desc':
+            sort_by = '-lorcana_card__cost'
+        else:
+            sort_by = 'lorcana_card__id'
+
+        list_cards_query = list_cards_query.order_by(sort_by).select_related('lorcana_card')
+
+        paginator = Paginator(list_cards_query, page_size)
+        try:
+            current_page = paginator.page(page)
+        except EmptyPage:
+            return Response({'error': 'Page not found'}, status=404)
+
+        serialized_data = []
+        for list_card in current_page:
+            card_id = list_card['lorcana_card']
+            card = LorcanaCardData.objects.get(pk=card_id)
+            card_data = {
+                'id': card.id,
+                'name': card.name,
+                'artist': card.artist,
+                'set_name': card.set_name,
+                'set_num': card.set_num,
+                'color': card.color,
+                'image': card.image,
+                'cost': card.cost,
+                'inkable': card.inkable,
+                'type': card.type,
+                'rarity': card.rarity,
+                'flavor_text': card.flavor_text,
+                'card_num': card.card_num,
+                'body_text': card.body_text,
+                'set_id': card.set_id,
+                'card_count': list_card['card_count']
+            }
+            serialized_data.append(card_data)
+
+        return JsonResponse({
+            'data': serialized_data,
+            'total_pages': paginator.num_pages
+        })
+    except Exception as e:
+        print(f"Error: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
     
+@api_view(['GET'])
 def fetch_lorcana_cards(request):
     try:
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         search_term = request.GET.get('search', '')
+        color = request.GET.get('color', None)
+        rarity = request.GET.get('rarity', None)
+        set_name = request.GET.get('set_name', None)
+        sort_option = request.GET.get('sort', None)
 
+        query = Q()
         if search_term:
-            cards_query = LorcanaCardData.objects.filter(name__icontains=search_term).order_by('id')
+            query &= Q(name__icontains=search_term)
+        if color:
+            query &= Q(color__icontains=color)
+        if rarity:
+            query &= Q(rarity=rarity)
+        if set_name:
+            query &= Q(set_name__icontains=set_name)
+
+        if sort_option == 'name_desc':
+            sort_by = '-name'
+        elif sort_option == 'price_asc':
+            sort_by = 'cost'
+        elif sort_option == 'price_desc':
+            sort_by = '-cost'
         else:
-            cards_query = LorcanaCardData.objects.all().order_by('id')
+            sort_by = 'name'
+
+        cards_query = LorcanaCardData.objects.filter(query).order_by(sort_by)
 
         paginator = Paginator(cards_query, page_size)
         try:
@@ -92,4 +144,37 @@ def fetch_lorcana_cards(request):
         })
 
     except Exception as e:
+        print(f"Error: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+    
+@api_view(['GET'])
+def get_mtg_filter_options(request):
+    try:
+        spelling_corrections = {
+            'rise of ther floodborn': 'Rise of the Floodborn',
+        }
+
+        color = LorcanaCardData.objects.values('color').distinct()
+        rarity = LorcanaCardData.objects.values('rarity').distinct()
+        set_name = LorcanaCardData.objects.annotate(
+            set_name_lower=Lower('set_name')
+        ).values_list('set_name_lower', flat=True).distinct()
+
+        corrected_set_names = set()
+        for name in set_name:
+            corrected_name = spelling_corrections.get(name.lower(), name)
+            corrected_set_names.add(corrected_name.title())
+
+        unique_set_names = list(set([name.capitalize() for name in corrected_set_names]))
+
+        filter_options = {
+            'color': [item['color'] for item in color],
+            'rarity': [item['rarity'] for item in rarity],
+            'set_name': sorted(unique_set_names),
+        }
+
+        return Response(filter_options)
+    except Exception as e:
+        print(f"Error: {e}")
+        return Response({'error': str(e)}, status=500)

@@ -15,7 +15,9 @@ export type MTGCardData = {
         border_crop: string;
     };
     cmc: number;
+    count: number
     type_line: string;
+    card_count: number;
     color_identity: string[];
     keywords: string[];
     legalities: Record<string, string>;

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, Autocomplete } from '@mui/material';
 import LorcanaCardData from './LorcanaCardData';
 import { CardList, useList } from '../../Types/CardList';
 import LorcanaCardInfo from './LorcanaCardInfo';
+import { OptionType, SortOptionType } from '../../Types/Options';
 
 type LorcanaCardsProps = {
     selectedListId?: string;
@@ -17,12 +18,30 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
     const [cardsPerPage] = useState(20);
     const [showData, setShowData] = useState(false);
     const [selectedCard, setSelectedCard] = useState<LorcanaCardData | null>(null);
-    const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
+    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+        { label: 'Name Ascending', value: 'name_asc' },
+        { label: 'Name Descending', value: 'name_desc' },
+        { label: 'Price Ascending', value: 'price_asc' },
+        { label: 'Price Descending', value: 'price_desc' },
+    ];
     const { listData, updateListData } = useList();
+    const [filterOptions, setFilterOptions] = useState<{
+        color: OptionType[];
+        rarity: OptionType[];
+        set_name: OptionType[];
+    }>({
+        color: [],
+        rarity: [],
+        set_name: [],
+    });
+    const [colorFilter, setColorFilter] = useState<OptionType | null>(null);
+    const [inkableFilter, setInkableFilter] = useState<OptionType | null>(null);
+    const [rarityFilter, setRarityFilter] = useState<OptionType | null>(null);
+    const [setFilter, setSetFilter] = useState<OptionType | null>(null);
 
-    const fetchData = async (page = 1) => {
+    const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
                 params: {
@@ -30,6 +49,9 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
                     page: page,
                     page_size: cardsPerPage,
                     list_id: selectedListId,
+                    sort: sortOption?.value,
+                    isInAddMode: isInAddMode,
+                    ...filters
                 }
             };
 
@@ -43,16 +65,9 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: LorcanaCardData[] = response.data.data;
 
-                const uniqueCards: LorcanaCardData[] = [];
-                const cardCount: { [key: string]: number } = {};
-
-                fetchedCards.forEach((card: LorcanaCardData) => {
-                    if (!cardCount[card.id]) {
-                        uniqueCards.push(card);
-                        cardCount[card.id] = 1;
-                    } else {
-                        cardCount[card.id]++;
-                    }
+                const quantities: { [key: string]: number } = {};
+                fetchedCards.forEach(card => {
+                    quantities[card.id] = card.card_count;
                 });
 
                 setCards(response.data.data.map((card: any) => ({
@@ -71,8 +86,9 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
                     Card_Num: card.card_num,
                     Body_Text: card.body_text,
                     Set_ID: card.set_id,
+                    card_count: card.card_count,
                 })));
-                setCardQuantities(cardCount);
+                setCardQuantities(quantities);
                 setTotalPages(response.data.total_pages);
             } else {
                 console.error('Unexpected response format');
@@ -90,6 +106,19 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
         }
         handleListUpdate();
     }, [selectedListId]);
+
+    useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/api/lorcana-filter-options/');
+                setFilterOptions(response.data);
+            } catch (error) {
+                console.error('Error fetching filter options:', error);
+            }
+        };
+
+        fetchFilterOptions();
+    }, []);
 
     const handleListUpdate = async () => {
         const updatedList = await fetchListData();
@@ -203,13 +232,34 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
     };
 
     const handleSearchClick = () => {
-        fetchData(1);
         setCurrentPage(1);
+        fetchData(1, {
+            color: colorFilter,
+            inkable: inkableFilter,
+            rarity: rarityFilter,
+            set_name: setFilter,
+        });
     };
 
     const paginate = (value: number) => {
         setCurrentPage(value);
-        fetchData(value);
+        fetchData(value, {
+            color: colorFilter,
+            inkable: inkableFilter,
+            rarity: rarityFilter,
+            set_name: setFilter,
+        });
+    };
+
+    const handleClearFilters = () => {
+        setSearch('');
+        setColorFilter(null);
+        setInkableFilter(null);
+        setRarityFilter(null);
+        setSetFilter(null);
+        setSortOption(null);
+
+        fetchData(1);
     };
 
     const handleCardInfo = (card: LorcanaCardData) => {
@@ -251,15 +301,56 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListUpdate?: () => void }> 
                 onChange={(e) => setSearch(e.target.value)}
                 sx={{ mb: 2 }}
             />
-            <TextField
-                label="Filter"
-                variant="outlined"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                sx={{ mb: 2 }}
-            />
-            <Button variant="contained" onClick={handleSearchClick}>Search</Button>
-            <Grid container spacing={2}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-color"
+                    disablePortal
+                    options={filterOptions.color}
+                    value={colorFilter}
+                    onChange={(_event, newValue) => setColorFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
+                    renderInput={(params) => <TextField {...params} label="Color" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-rarity"
+                    disablePortal
+                    options={filterOptions.rarity}
+                    value={rarityFilter}
+                    onChange={(_event, newValue) => setRarityFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Rarity" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-set"
+                    disablePortal
+                    options={filterOptions.set_name}
+                    value={setFilter}
+                    onChange={(_event, newValue) => setSetFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Set" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-sort"
+                    disablePortal
+                    options={sortOptions}
+                    value={sortOption}
+                    onChange={(_event, newValue) => setSortOption(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option.value === value.value}
+                    renderInput={(params) => <TextField {...params} label="Sort By" />}
+                />
+            </FormControl>
+            <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
+            <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>            <Grid container spacing={2}>
                 {cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                         <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>

@@ -6,17 +6,9 @@ import CardInfo from './PokemonCardInfo';
 import { CardList, useList } from '../../Types/CardList'
 import SearchIcon from '@mui/icons-material/Search';
 import Autocomplete from '@mui/material/Autocomplete';
+import { SortOptionType, OptionType, CardProps } from '../../Types/Options';
 
-type PokemonCardsProps = {
-    selectedListId?: string;
-    isInAddMode?: boolean;
-};
-type SortOptionType = { label: string; value: string } | null;
-interface OptionType {
-    label: string;
-}
-
-const PokemonCards: React.FC<PokemonCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
+const PokemonCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
     const [cards, setCards] = useState<CardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);

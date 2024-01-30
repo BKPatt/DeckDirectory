@@ -86,10 +86,6 @@ def add_card_to_list(request):
             card = YugiohCard.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, yugioh_card=card)
 
-            print(card)
-            print(card.card_sets.all())
-            print(card.card_prices.all())
-
             prices = card.card_prices.all()
             if prices.exists():
                 total_market_price = sum(Decimal(price.cardmarket_price or 0) for price in prices)
@@ -101,19 +97,16 @@ def add_card_to_list(request):
             card = MTGCardsData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, mtg_card=card)
 
-            print(card)
-            print(card.card_faces.all())
-
-            market_value_increase = 0
+            market_value_increase = Decimal(0)
             if card.prices:
-                market_value_increase = Decimal(card.prices.get('usd', {}))
+                usd_price = card.prices.get('usd')
+                if usd_price is not None:
+                    market_value_increase = Decimal(usd_price)
 
             updated_list.market_value += market_value_increase
         elif card_type == 'lorcana':
             card = LorcanaCardData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, lorcana_card=card)
-
-            print(card)
 
             market_value_increase = 0
             if card.cost:

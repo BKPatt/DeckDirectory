@@ -91,7 +91,7 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({ card }) => {
                         <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
                             {card.cmc && renderProperty('Mana Cost', card.cmc.toString())}
                             {card.type_line && renderProperty('Type', card.type_line)}
-                            {card.rarity && renderProperty('Rarity', card.rarity)}
+                            {card.lang && renderProperty('Language', card.lang)}
                             {card.released_at && renderProperty('Realeased', card.released_at)}
                             {card.set_name && renderProperty('Set', card.set_name)}
                             {card.set_type && renderProperty('Set Type', card.set_type)}

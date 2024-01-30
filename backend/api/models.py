@@ -11,7 +11,7 @@ class CardList(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=50)
-    market_value = models.DecimalField(max_digits=10, decimal_places=2)
+    market_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     cards = models.ForeignKey
     yugioh_cards = models.ForeignKey
     mtg_cards = models.ForeignKey
@@ -67,6 +67,11 @@ class CardPrice(models.Model):
     ebay_price = models.CharField(max_length=100)
     amazon_price = models.CharField(max_length=100)
     coolstuffinc_price = models.CharField(max_length=100)
+
+    def get_average_price(self):
+        prices = [self.cardmarket_price, self.ebay_price, self.amazon_price]
+        prices = [Decimal(price) for price in prices if price]
+        return sum(prices) / len(prices) if prices else Decimal('0.00')
 
     def __str__(self):
         return f'CardMarket: {self.cardmarket_price}, TCGPlayer: {self.tcgplayer_price}, eBay: {self.ebay_price}, Amazon: {self.amazon_price}, CoolStuffInc: {self.coolstuffinc_price}'
@@ -217,7 +222,7 @@ class MTGCardsData(models.Model):
     uri = models.URLField()
     layout = models.CharField(max_length=100)
     image_uris = models.JSONField(blank=True, null=True)
-    cmc = models.DecimalField(max_digits=10, decimal_places=2)
+    cmc = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     type_line = models.CharField(max_length=200)
     color_identity = models.JSONField()
     keywords = models.JSONField()
@@ -270,13 +275,11 @@ class ListCard(models.Model):
 
     @property
     def card_market_value(self):
-        """
-        Returns the market value of the card from the appropriate card type.
-        This assumes each card type has a `cardmarket` attribute with `prices.averageSellPrice`.
-        """
         if self.pokemon_card and self.pokemon_card.cardmarket:
-            return self.pokemon_card.cardmarket.prices.get('averageSellPrice', {})
+            price = self.pokemon_card.cardmarket.prices.get('averageSellPrice')
+            return Decimal(price) if price is not None else Decimal('0.00')
         return Decimal('0.00')
+
 
     def save(self, *args, **kwargs):
         self.market_value = self.card_market_value or Decimal('0.00')

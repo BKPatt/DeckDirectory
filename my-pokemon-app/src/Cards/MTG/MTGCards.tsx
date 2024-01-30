@@ -1,36 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { CardList, useList } from '../../Types/CardList'
-import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment, FormControl, Autocomplete } from '@mui/material';
 import Default from '../../assets/Default.png'
 import { MTGCardData } from './MTGCardData';
 import MTGCardInfo from './MTGCardInfo';
+import { SortOptionType, OptionType, CardProps } from '../../Types/Options';
+import SearchIcon from '@mui/icons-material/Search';
 
-type MTGCardsProps = {
-    selectedListId?: string;
-    isInAddMode?: boolean;
-};
-
-const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
+const MTGCards: React.FC<CardProps & { onListUpdate?: () => void }> = ({ selectedListId, isInAddMode, onListUpdate }) => {
     const [cards, setCards] = useState<MTGCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [cardsPerPage] = useState(20);
     const [showData, setShowData] = useState(false);
     const [selectedCard, setSelectedCard] = useState<MTGCardData | null>(null);
-    const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
+    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+        { label: 'Name Ascending', value: 'name_asc' },
+        { label: 'Name Descending', value: 'name_desc' },
+        { label: 'Price Ascending', value: 'price_asc' },
+        { label: 'Price Descending', value: 'price_desc' },
+    ];
     const { listData, updateListData } = useList();
+    const [filterOptions, setFilterOptions] = useState<{
+        type_line: OptionType[];
+        rarities: OptionType[];
+        sets: OptionType[];
+    }>({
+        type_line: [],
+        rarities: [],
+        sets: [],
+    });
+    const [typeFilter, setTypeFilter] = useState<OptionType | null>(null);
+    const [rarityFilter, setRarityFilter] = useState<OptionType | null>(null);
+    const [setFilter, setSetFilter] = useState<OptionType | null>(null);
 
-    const fetchData = async (page = 1) => {
+    const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
                 params: {
-                    search: encodeURIComponent(search),
+                    search: search,
                     page: page,
                     page_size: cardsPerPage,
                     list_id: selectedListId,
+                    sort: sortOption?.value,
+                    isInAddMode: isInAddMode,
+                    ...filters
                 }
             };
             let url = isInAddMode == null ? `http://localhost:8000/api/mtg-cards/`
@@ -41,19 +58,13 @@ const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ sel
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: MTGCardData[] = response.data.data;
 
-                const uniqueCards: MTGCardData[] = [];
-                const cardCount: { [key: string]: number } = {};
-
-                fetchedCards.forEach((card: MTGCardData) => {
-                    if (!cardCount[card.id]) {
-                        uniqueCards.push(card);
-                        cardCount[card.id] = 1;
-                    } else {
-                        cardCount[card.id]++;
-                    }
+                const quantities: { [key: string]: number } = {};
+                fetchedCards.forEach(card => {
+                    quantities[card.id] = card.card_count;
                 });
-                setCards(uniqueCards);
-                setCardQuantities(cardCount);
+
+                setCards(fetchedCards);
+                setCardQuantities(quantities);
                 setTotalPages(response.data.total_pages);
             } else {
                 console.error('Unexpected response format');
@@ -71,6 +82,19 @@ const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ sel
         }
         handleListUpdate();
     }, [selectedListId]);
+
+    useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/api/mtg-filter-options/');
+                setFilterOptions(response.data);
+            } catch (error) {
+                console.error('Error fetching filter options:', error);
+            }
+        };
+
+        fetchFilterOptions();
+    }, []);
 
     const handleListUpdate = async () => {
         const updatedList = await fetchListData();
@@ -184,13 +208,28 @@ const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ sel
     };
 
     const handleSearchClick = () => {
-        fetchData(1);
         setCurrentPage(1);
+        fetchData(1, {
+            type_line: typeFilter,
+            rarity: rarityFilter,
+            set: setFilter,
+        });
     };
 
     const paginate = (value: number) => {
-        setCurrentPage(value);
-        fetchData(value);
+        fetchData(value, {
+            type_line: typeFilter,
+            rarity: rarityFilter,
+            set: setFilter,
+        });
+    };
+
+    const handleClearFilters = () => {
+        setSearch('');
+        setTypeFilter(null);
+        setRarityFilter(null);
+        setSetFilter(null);
+        setSortOption(null);
     };
 
     const handleCardInfo = (card: MTGCardData) => {
@@ -230,16 +269,65 @@ const MTGCards: React.FC<MTGCardsProps & { onListUpdate?: () => void }> = ({ sel
                 variant="outlined"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <SearchIcon />
+                        </InputAdornment>
+                    ),
+                }}
                 sx={{ mb: 2 }}
             />
-            <TextField
-                label="Filter"
-                variant="outlined"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                sx={{ mb: 2 }}
-            />
-            <Button variant="contained" onClick={handleSearchClick}>Search</Button>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-type"
+                    disablePortal
+                    options={filterOptions.type_line}
+                    value={typeFilter}
+                    onChange={(_event, newValue) => setTypeFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
+                    renderInput={(params) => <TextField {...params} label="Type" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-rarity"
+                    disablePortal
+                    options={filterOptions.rarities}
+                    value={rarityFilter}
+                    onChange={(_event, newValue) => setRarityFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Rarity" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-set"
+                    disablePortal
+                    options={filterOptions.sets}
+                    value={setFilter}
+                    onChange={(_event, newValue) => setSetFilter(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Set" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-sort"
+                    disablePortal
+                    options={sortOptions}
+                    value={sortOption}
+                    onChange={(_event, newValue) => setSortOption(newValue)}
+                    sx={{ width: 200 }}
+                    isOptionEqualToValue={(option, value) => option.value === value.value}
+                    renderInput={(params) => <TextField {...params} label="Sort By" />}
+                />
+            </FormControl>
+            <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
+            <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
             <Grid container spacing={2}>
                 {Array.isArray(cards) && cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>

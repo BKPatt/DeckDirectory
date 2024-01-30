@@ -8,6 +8,7 @@ export type YugiohCardData = {
     def: number;
     level: number;
     race: string;
+    card_count: number;
     attribute: string;
     card_sets: CardSet[];
     card_images: CardImage[];

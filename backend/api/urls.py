@@ -3,9 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .views import CardListViewSet, add_card_to_list, update_card_quantity, delete_card_from_list, get_list_by_id, update_list
 from .viewsOrganized.pokemon import get_pokemon_cards_by_list, pokemon_cards_api, get_filter_options
 from .viewsOrganized.ebay import fetch_ebay_data
-from .viewsOrganized.yugioh import fetch_yugioh_cards, get_yugioh_cards_by_list
-from .viewsOrganized.mtg import get_mtg_cards_by_list, fetch_mtg_cards
-from .viewsOrganized.lorcana import get_lorcana_cards_by_list, fetch_lorcana_cards
+from .viewsOrganized.yugioh import fetch_yugioh_cards, get_yugioh_cards_by_list, get_yugioh_filter_options
+from .viewsOrganized.mtg import get_mtg_cards_by_list, fetch_mtg_cards, get_mtg_filter_options
+from .viewsOrganized.lorcana import get_lorcana_cards_by_list, fetch_lorcana_cards, get_mtg_filter_options
 
 router = DefaultRouter()
 router.register(r'cardlists', CardListViewSet)
@@ -27,4 +27,7 @@ urlpatterns = [
     path('get-list-by-id/<int:list_id>/', get_list_by_id, name='get-list-by-id'),
     path('card-lists/update/<int:list_id>/', update_list, name='update-list'),
     path('filter-options/', get_filter_options, name='filter-options'),
+    path('mtg-filter-options/', get_mtg_filter_options, name='mtg-filter-options'),
+    path('yugioh-filter-options/', get_yugioh_filter_options, name='yugioh-filter-options'),
+    path('lorcana-filter-options/', get_mtg_filter_options, name='lorcana-filter-options'),
 ]

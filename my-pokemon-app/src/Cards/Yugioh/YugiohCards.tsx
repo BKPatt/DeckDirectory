@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, Autocomplete } from '@mui/material';
 import { YugiohCardData } from './YugiohCardData';
 import { CardList, useList } from '../../Types/CardList'
 import YugiohCardInfo from './YugiohCardInfo';
+import { OptionType, SortOptionType } from '../../Types/Options';
 
 type YugiohCardsProps = {
     selectedListId?: string;
@@ -17,12 +18,38 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
     const [cardsPerPage] = useState(20);
     const [showData, setShowData] = useState(false);
     const [selectedCard, setSelectedCard] = useState<YugiohCardData | null>(null);
-    const [filter, setFilter] = useState('');
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
+    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+        { label: 'Name Ascending', value: 'name_asc' },
+        { label: 'Name Descending', value: 'name_desc' },
+        { label: 'Price Ascending', value: 'price_asc' },
+        { label: 'Price Descending', value: 'price_desc' },
+    ];
     const { listData, updateListData } = useList();
+    const [filterOptions, setFilterOptions] = useState<{
+        card_type: OptionType[];
+        frame_type: OptionType[];
+        race: OptionType[];
+        attribute: OptionType[];
+        set_name: OptionType[];
+        rarities: OptionType[];
+    }>({
+        card_type: [],
+        frame_type: [],
+        race: [],
+        attribute: [],
+        set_name: [],
+        rarities: [],
+    });
+    const [cardTypeFilter, setCardTypeFilter] = useState<OptionType | null>(null);
+    const [frameTypeFilter, setFrameTypeFilter] = useState<OptionType | null>(null);
+    const [raceFilter, setRaceFilter] = useState<OptionType | null>(null);
+    const [attributeFilter, setAttributeFilter] = useState<OptionType | null>(null);
+    const [setFilter, setSetFilter] = useState<OptionType | null>(null);
+    const [rarityFilter, setRarityFilter] = useState<OptionType | null>(null);
 
-    const fetchData = async (page = 1) => {
+    const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
                 params: {
@@ -30,6 +57,9 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
                     page: page,
                     page_size: cardsPerPage,
                     list_id: selectedListId,
+                    sort: sortOption?.value,
+                    isInAddMode: isInAddMode,
+                    ...filters
                 }
             };
             let url = isInAddMode == null ? `http://localhost:8000/api/fetch-yugioh-cards/`
@@ -40,20 +70,13 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: YugiohCardData[] = response.data.data;
 
-                const uniqueCards: YugiohCardData[] = [];
-                const cardCount: { [key: string]: number } = {};
-
-                fetchedCards.forEach((card: YugiohCardData) => {
-                    if (!cardCount[card.id]) {
-                        uniqueCards.push(card);
-                        cardCount[card.id] = 1;
-                    } else {
-                        cardCount[card.id]++;
-                    }
+                const quantities: { [key: string]: number } = {};
+                fetchedCards.forEach(card => {
+                    quantities[card.id] = card.card_count;
                 });
 
-                setCards(uniqueCards);
-                setCardQuantities(cardCount);
+                setCards(fetchedCards);
+                setCardQuantities(quantities);
                 setTotalPages(response.data.total_pages);
             } else {
                 console.error('Unexpected response format');
@@ -71,6 +94,19 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
         }
         handleListUpdate();
     }, [selectedListId]);
+
+    useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/api/yugioh-filter-options/');
+                setFilterOptions(response.data);
+            } catch (error) {
+                console.error('Error fetching filter options:', error);
+            }
+        };
+
+        fetchFilterOptions();
+    }, []);
 
     const handleAddCard = async (card: YugiohCardData) => {
         if (selectedListId) {
@@ -189,8 +225,15 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
     };
 
     const handleSearchClick = () => {
-        fetchData(1);
         setCurrentPage(1);
+        fetchData(1, {
+            card_type: cardTypeFilter,
+            frame_type: frameTypeFilter,
+            race: raceFilter,
+            attribute: attributeFilter,
+            rarities: rarityFilter,
+            set_name: setFilter,
+        });
     };
 
     const handleCardInfo = (card: YugiohCardData) => {
@@ -201,6 +244,19 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
+    };
+
+    const handleClearFilters = () => {
+        setSearch('');
+        setCardTypeFilter(null);
+        setFrameTypeFilter(null);
+        setRaceFilter(null);
+        setAttributeFilter(null);
+        setSetFilter(null);
+        setRarityFilter(null);
+        setSortOption(null);
+
+        fetchData(1);
     };
 
     const cardInfo = selectedCard && (
@@ -232,14 +288,92 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListUpdate?: () => void }> = 
                 onChange={(e) => setSearch(e.target.value)}
                 sx={{ mb: 2 }}
             />
-            <TextField
-                label="Filter"
-                variant="outlined"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                sx={{ mb: 2 }}
-            />
-            <Button variant="contained" onClick={handleSearchClick}>Search</Button>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-card"
+                    disablePortal
+                    options={filterOptions.card_type}
+                    value={cardTypeFilter}
+                    onChange={(_event, newValue) => setCardTypeFilter(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
+                    renderInput={(params) => <TextField {...params} label="Card Type" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-frame"
+                    disablePortal
+                    options={filterOptions.frame_type}
+                    value={frameTypeFilter}
+                    onChange={(_event, newValue) => setFrameTypeFilter(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
+                    renderInput={(params) => <TextField {...params} label="Frame Type" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-race"
+                    disablePortal
+                    options={filterOptions.race}
+                    value={raceFilter}
+                    onChange={(_event, newValue) => setRaceFilter(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
+                    renderInput={(params) => <TextField {...params} label="Race" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-attribute"
+                    disablePortal
+                    options={filterOptions.attribute}
+                    value={attributeFilter}
+                    onChange={(_event, newValue) => setAttributeFilter(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Attribute" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-rarities"
+                    disablePortal
+                    options={filterOptions.rarities}
+                    value={rarityFilter}
+                    onChange={(_event, newValue) => setRarityFilter(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option === value}
+                    renderInput={(params) => <TextField {...params} label="Rarity" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-set"
+                    disablePortal
+                    options={filterOptions.set_name}
+                    value={setFilter}
+                    onChange={(_event, newValue) => setSetFilter(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
+                    renderInput={(params) => <TextField {...params} label="Set" />}
+                />
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
+                <Autocomplete
+                    id="combo-box-sort"
+                    disablePortal
+                    options={sortOptions}
+                    value={sortOption}
+                    onChange={(_event, newValue) => setSortOption(newValue)}
+                    sx={{ width: 175 }}
+                    isOptionEqualToValue={(option, value) => option.value === value.value}
+                    renderInput={(params) => <TextField {...params} label="Sort By" />}
+                />
+            </FormControl>
+            <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
+            <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
             <Grid container spacing={2}>
                 {Array.isArray(cards) && cards.map((card, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
