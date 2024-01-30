@@ -21,14 +21,16 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [currentList, setCurrentList] = useState<CardList | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
-    const { listData, updateListInDatabase } = useList();
+    const { updateListInDatabase } = useList();
 
     useEffect(() => {
         if (list) {
             setCurrentList(list);
-            setEditedTitle(list.name);
+            if (currentList) {
+                setEditedTitle(currentList.name);
+            }
         }
-    }, [list, listData]);
+    }, []);
 
     const fetchUpdatedList = async () => {
         if (currentList) {
@@ -121,7 +123,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
                                 onBlur={() => setIsEditing(false)}
                             />
                         ) : (
-                            currentList ? currentList.name : ''
+                            editedTitle
                         )}
                     </Box>
                     <Box>
