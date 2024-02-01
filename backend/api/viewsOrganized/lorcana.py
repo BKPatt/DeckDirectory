@@ -142,7 +142,7 @@ def fetch_lorcana_cards(request):
 
     
 @api_view(['GET'])
-def get_mtg_filter_options(request):
+def get_lorcana_filter_options(request):
     try:
         spelling_corrections = {
             'rise of ther floodborn': 'Rise of the Floodborn',

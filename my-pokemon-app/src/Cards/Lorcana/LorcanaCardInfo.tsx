@@ -1,12 +1,27 @@
 import React from 'react';
 import { Box, Typography, Card, CardMedia, Divider } from '@mui/material';
 import LorcanaCardData from './LorcanaCardData';
+import AddCard from '../../Components/AddCard';
 
 type CardInfoProps = {
     card: LorcanaCardData;
+    selectedCardListId?: string;
+    incrementCardQuantity: (card: LorcanaCardData) => void;
+    decrementCardQuantity: (card: LorcanaCardData) => void;
+    deleteCard: (card: LorcanaCardData) => void;
+    close: () => void;
+    cardQuantity: number;
 };
 
-const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
+const CardInfo: React.FC<CardInfoProps> = ({
+    card,
+    selectedCardListId,
+    incrementCardQuantity,
+    decrementCardQuantity,
+    deleteCard,
+    close,
+    cardQuantity
+}) => {
     const renderProperty = (label: string, value: string | JSX.Element) => (
         <Box sx={{ textAlign: 'center', margin: '10px 0' }}>
             <Typography variant="caption" color="textSecondary" sx={{ display: 'block', marginBottom: '5px' }}>
@@ -18,12 +33,21 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
 
     return (
         <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2, height: '100%' }}>
-            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <CardMedia
                     component="img"
                     sx={{ maxWidth: '100%', maxHeight: '100%' }}
                     image={card.Image}
                     alt={card.Name}
+                />
+                <AddCard
+                    selectedCardListId={selectedCardListId}
+                    cardQuantity={cardQuantity}
+                    deleteCard={() => deleteCard(card)}
+                    decrementCardQuantity={() => decrementCardQuantity(card)}
+                    incrementCardQuantity={() => incrementCardQuantity(card)}
+                    close={close}
+                    card={card}
                 />
             </Box>
             <Box sx={{ p: 2, flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>

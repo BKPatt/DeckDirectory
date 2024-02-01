@@ -2,12 +2,27 @@ import React, { useState } from 'react';
 import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
 import { MTGCardData } from './MTGCardData';
 import Default from '../../assets/Default.png'
+import AddCard from '../../Components/AddCard';
 
 type CardInfoProps = {
     card: MTGCardData;
+    selectedCardListId?: string;
+    incrementCardQuantity: (card: MTGCardData) => void;
+    decrementCardQuantity: (card: MTGCardData) => void;
+    deleteCard: (card: MTGCardData) => void;
+    close: () => void;
+    cardQuantity: number;
 };
 
-const MTGCardInfo: React.FC<CardInfoProps> = ({ card }) => {
+const MTGCardInfo: React.FC<CardInfoProps> = ({
+    card,
+    selectedCardListId,
+    incrementCardQuantity,
+    decrementCardQuantity,
+    deleteCard,
+    close,
+    cardQuantity
+}) => {
     const [selectedTab, setSelectedTab] = useState(0);
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -59,12 +74,21 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({ card }) => {
 
     return (
         <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2, height: '100%' }}>
-            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <CardMedia
                     component="img"
                     sx={{ maxWidth: '100%', maxHeight: '100%' }}
                     image={card.image_uris?.large || Default}
                     alt={card.name}
+                />
+                <AddCard
+                    selectedCardListId={selectedCardListId}
+                    cardQuantity={cardQuantity}
+                    deleteCard={() => deleteCard(card)}
+                    decrementCardQuantity={() => decrementCardQuantity(card)}
+                    incrementCardQuantity={() => incrementCardQuantity(card)}
+                    close={close}
+                    card={card}
                 />
             </Box>
             <Box sx={{ p: 2, flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -87,17 +111,15 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({ card }) => {
                 <Divider sx={{ my: 2 }} />
 
                 {selectedTab === 0 && (
-                    <Box>
-                        <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
-                            {card.cmc && renderProperty('Mana Cost', card.cmc.toString())}
-                            {card.type_line && renderProperty('Type', card.type_line)}
-                            {card.lang && renderProperty('Language', card.lang)}
-                            {card.released_at && renderProperty('Realeased', card.released_at)}
-                            {card.set_name && renderProperty('Set', card.set_name)}
-                            {card.set_type && renderProperty('Set Type', card.set_type)}
-                            {card.artist && renderProperty('Artist', card.artist)}
-                            {card.rarity && renderProperty('Rarity', card.rarity)}
-                        </Box>
+                    <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
+                        {card.cmc && renderProperty('Mana Cost', card.cmc.toString())}
+                        {card.type_line && renderProperty('Type', card.type_line)}
+                        {card.lang && renderProperty('Language', card.lang)}
+                        {card.released_at && renderProperty('Realeased', card.released_at)}
+                        {card.set_name && renderProperty('Set', card.set_name)}
+                        {card.set_type && renderProperty('Set Type', card.set_type)}
+                        {card.artist && renderProperty('Artist', card.artist)}
+                        {card.rarity && renderProperty('Rarity', card.rarity)}
                     </Box>
                 )}
 

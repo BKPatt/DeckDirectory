@@ -10,7 +10,8 @@ from django.db import transaction
 from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Count
+from django.db.models import Count, DecimalField
+from django.db.models.functions import Cast
 
 def calculate_average_price(prices):
     if not prices:
@@ -73,6 +74,14 @@ class CardListViewSet(viewsets.ModelViewSet):
         sort_field = self.request.query_params.get('sort_field', 'created_on')
         sort_direction = self.request.query_params.get('sort_direction', 'asc')
 
+        if sort_field == 'market_value':
+            queryset = queryset.annotate(
+                market_value_decimal=Cast('market_value', output_field=DecimalField(max_digits=10, decimal_places=2))
+            )
+            if sort_direction == 'desc':
+                queryset = queryset.order_by('-market_value_decimal')
+            else:
+                queryset = queryset.order_by('market_value_decimal')
         if sort_field == 'num_cards':
             queryset = queryset.annotate(num_cards=Count('list_cards'))
             if sort_direction == 'desc':
@@ -356,3 +365,31 @@ def update_list(request, list_id):
     except Exception as e:
         logger.error(f"Error updating list: {e}")
         return Response({'error': str(e)}, status=500)
+    
+@api_view(['POST'])
+def add_card_to_collection(request):
+    try:
+        with transaction.atomic():
+            list_id = request.data.get('list_id')
+            card_id = request.data.get('card_id')
+            collected = request.data.get('collected', False)
+
+            card_list = CardList.objects.get(id=list_id)
+            list_card, created = ListCard.objects.get_or_create(
+                card_list=card_list, 
+                pokemon_card_id=card_id,
+                defaults={'collected': collected}
+            )
+
+            if not created:
+                list_card.collected = collected
+                list_card.save()
+
+            return Response({'message': 'Card collection status updated successfully.'})
+
+    except CardList.DoesNotExist:
+        return Response({'error': 'CardList not found'}, status=404)
+    except PokemonCardData.DoesNotExist:
+        return Response({'error': 'Card not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)

@@ -7,6 +7,8 @@ import { MTGCardData } from './MTGCardData';
 import MTGCardInfo from './MTGCardInfo';
 import { SortOptionType, OptionType, CardProps } from '../../Types/Options';
 import SearchIcon from '@mui/icons-material/Search';
+import CardDisplay from '../../Components/CardDisplay';
+import FilterFormControl from '../../Components/FilterFormControl';
 
 const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
     const [cards, setCards] = useState<MTGCardData[]>([]);
@@ -36,6 +38,8 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
     const [typeFilter, setTypeFilter] = useState<OptionType | null>(null);
     const [rarityFilter, setRarityFilter] = useState<OptionType | null>(null);
     const [setFilter, setSetFilter] = useState<OptionType | null>(null);
+    const [collectedStatus, setCollectedStatus] = useState<{ [key: string]: boolean }>({});
+    const [collectedQuantities, setCollectedQuantities] = useState<{ [key: string]: number }>({});
 
     const fetchData = async (page: number = 1, filters = {}) => {
         try {
@@ -64,8 +68,17 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 });
 
                 setCards(fetchedCards);
-                setCardQuantities(quantities);
                 setTotalPages(response.data.total_pages);
+
+                if (isInAddMode) {
+                    const quantitiesUrl = `http://localhost:8000/api/mtg-cards-by-list/${selectedListId}/`;
+                    const quantitiesResponse = await axios.get(quantitiesUrl);
+                    quantitiesResponse.data.data.forEach((card: any) => {
+                        quantities[card.id] = card.card_count || 0;
+                    });
+                }
+
+                setCardQuantities(quantities);
             } else {
                 console.error('Unexpected response format');
             }
@@ -77,9 +90,6 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
 
     useEffect(() => {
         fetchData();
-        if (selectedListId) {
-            fetchData();
-        }
         handleListUpdate();
     }, [selectedListId]);
 
@@ -173,6 +183,41 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         await handleCardQuantityChange();
     };
 
+    const handleIncrementCollectedQuantity = (cardId: string) => {
+        if (collectedQuantities[cardId] < cardQuantities[cardId]) {
+            setCollectedQuantities({
+                ...collectedQuantities,
+                [cardId]: (collectedQuantities[cardId] || 0) + 1,
+            });
+            // Add API call to increment collected quantity in backend if needed
+        }
+    };
+
+    const handleDecrementCollectedQuantity = (cardId: string) => {
+        if (collectedQuantities[cardId] > 0) {
+            setCollectedQuantities({
+                ...collectedQuantities,
+                [cardId]: collectedQuantities[cardId] - 1,
+            });
+            // Add API call to decrement collected quantity in backend if needed
+        }
+    };
+
+    const handleCheckboxChange = (cardId: string, isChecked: boolean) => {
+        setCollectedStatus(prevStatus => ({
+            ...prevStatus,
+            [cardId]: isChecked
+        }));
+
+        const maxQuantity = cardQuantities[cardId] || 0;
+        setCollectedQuantities(prevQuantities => ({
+            ...prevQuantities,
+            [cardId]: isChecked ? maxQuantity : 0,
+        }));
+
+        // Add API call to update collected status in backend if needed
+    };
+
     const deleteCardFromList = async (cardId: string) => {
         const url = `http://localhost:8000/api/delete-card-from-list/`;
         try {
@@ -194,6 +239,10 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
     };
 
     const handleAddCard = async (card: MTGCardData) => {
+        setCardQuantities(prevQuantities => ({
+            ...prevQuantities,
+            [card.id]: (prevQuantities[card.id] || 0) + 1
+        }));
         if (selectedListId) {
             try {
                 const response = await axios.post('http://localhost:8000/api/add-card-to-list/', {
@@ -234,6 +283,8 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         setRarityFilter(null);
         setSetFilter(null);
         setSortOption(null);
+
+        fetchData(1)
     };
 
     const handleCardInfo = (card: MTGCardData) => {
@@ -255,7 +306,15 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         >
             <DialogTitle>{ }</DialogTitle>
             <DialogContent>
-                <MTGCardInfo card={selectedCard} />
+                <MTGCardInfo
+                    card={selectedCard}
+                    selectedCardListId={selectedListId}
+                    incrementCardQuantity={incrementCardQuantity}
+                    decrementCardQuantity={decrementCardQuantity}
+                    deleteCard={handleDeleteCard}
+                    close={handleCloseDialog}
+                    cardQuantity={cardQuantities[selectedCard.id]}
+                />
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseDialog} color="primary">
@@ -282,42 +341,27 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 }}
                 sx={{ mb: 2 }}
             />
-            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
-                <Autocomplete
-                    id="combo-box-type"
-                    disablePortal
-                    options={filterOptions.type_line}
-                    value={typeFilter}
-                    onChange={(_event, newValue) => setTypeFilter(newValue)}
-                    sx={{ width: 200 }}
-                    isOptionEqualToValue={(option, value) => option.label === value.label}
-                    renderInput={(params) => <TextField {...params} label="Type" />}
-                />
-            </FormControl>
-            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
-                <Autocomplete
-                    id="combo-box-rarity"
-                    disablePortal
-                    options={filterOptions.rarities}
-                    value={rarityFilter}
-                    onChange={(_event, newValue) => setRarityFilter(newValue)}
-                    sx={{ width: 200 }}
-                    isOptionEqualToValue={(option, value) => option === value}
-                    renderInput={(params) => <TextField {...params} label="Rarity" />}
-                />
-            </FormControl>
-            <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
-                <Autocomplete
-                    id="combo-box-set"
-                    disablePortal
-                    options={filterOptions.sets}
-                    value={setFilter}
-                    onChange={(_event, newValue) => setSetFilter(newValue)}
-                    sx={{ width: 200 }}
-                    isOptionEqualToValue={(option, value) => option === value}
-                    renderInput={(params) => <TextField {...params} label="Set" />}
-                />
-            </FormControl>
+            <FilterFormControl
+                id="type-filter"
+                label="Type"
+                filterOptions={filterOptions.type_line}
+                selectedFilter={typeFilter}
+                setSelectedFilter={setTypeFilter}
+            />
+            <FilterFormControl
+                id="rarity-filter"
+                label="Rarity"
+                filterOptions={filterOptions.rarities}
+                selectedFilter={rarityFilter}
+                setSelectedFilter={setRarityFilter}
+            />
+            <FilterFormControl
+                id="set-filter"
+                label="Set"
+                filterOptions={filterOptions.sets}
+                selectedFilter={setFilter}
+                setSelectedFilter={setSetFilter}
+            />
             <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
                 <Autocomplete
                     id="combo-box-sort"
@@ -333,54 +377,27 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
             <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
             <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
             <Grid container spacing={2}>
-                {Array.isArray(cards) && cards.map((card, index) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                        <Card sx={{ position: 'relative', '&:hover .cardActions': { opacity: 1 } }}>
-                            <CardMedia
-                                component="img"
-                                height="auto"
-                                image={card.image_uris?.large || Default}
-                                alt={card.name}
-                            />
-                            <Typography gutterBottom variant="h6" component="div" sx={{ textAlign: 'center' }}>
-                                {card.name}
-                            </Typography>
-                            <Box className="cardActions" sx={{ position: 'absolute', top: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', opacity: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', transition: 'opacity 0.3s' }}>
-                                {isInAddMode && (
-                                    <Button variant="contained" color="primary" onClick={() => handleAddCard(card)} sx={{ mb: 1, width: '70px' }}>
-                                        Add
-                                    </Button>
-                                )}
-                                <Button variant="contained" color="primary" onClick={() => handleCardInfo(card)} sx={{ mb: 1, width: '70px' }}>
-                                    Info
-                                </Button>
-                                {selectedListId && !isInAddMode && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        {cardQuantities[card.id] > 1 ? (
-                                            <Button variant="contained" onClick={() => decrementCardQuantity(card)} sx={{ width: '35px' }}>-</Button>
-                                        ) : (
-                                            <Button
-                                                variant="contained"
-                                                color="secondary"
-                                                onClick={() => handleDeleteCard(card)}
-                                                sx={{
-                                                    width: '35px',
-                                                    backgroundColor: 'red',
-                                                    '&:hover': {
-                                                        backgroundColor: 'darkred',
-                                                    },
-                                                }}
-                                            >
-                                                Delete
-                                            </Button>
-                                        )}
-                                        <Typography sx={{ mx: 1 }}>{cardQuantities[card.id] || 0}</Typography>
-                                        <Button variant="contained" onClick={() => incrementCardQuantity(card)} sx={{ width: '35px' }}>+</Button>
-                                    </Box>
-                                )}
-                            </Box>
-                        </Card>
-                    </Grid>
+                {cards.map((card) => (
+                    <CardDisplay
+                        key={card.id}
+                        card={card}
+                        onInfoClick={() => handleCardInfo(card)}
+                        onAddCard={() => handleAddCard(card)}
+                        onIncrementCard={() => incrementCardQuantity(card)}
+                        onDecrementCard={() => decrementCardQuantity(card)}
+                        onDeleteCard={() => handleDeleteCard(card)}
+                        handleIncrementCollectedQuantity={() => handleIncrementCollectedQuantity(card.id)}
+                        handleDecrementCollectedQuantity={() => handleDecrementCollectedQuantity(card.id)}
+                        isSelectedListId={!!selectedListId}
+                        isInAddMode={isInAddMode}
+                        collectedStatus={collectedStatus[card.id]}
+                        cardQuantities={cardQuantities}
+                        onCheckboxChange={() => handleCheckboxChange}
+                        image={card.image_uris?.large || Default}
+                        name={card.name}
+                        id={card.id}
+                        collectedQuantities={collectedQuantities}
+                    />
                 ))}
             </Grid>
             {cardInfo}

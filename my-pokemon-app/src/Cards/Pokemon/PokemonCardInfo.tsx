@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider } from '@mui/material';
+import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider, Button } from '@mui/material';
 import { CardData } from './CardData';
 import colorlessEnergy from '../../assets/energies/colorlessEnergy.png';
 import darknessEnergy from '../../assets/energies/darknessEnergy.png';
@@ -11,16 +11,31 @@ import lightningEnergy from '../../assets/energies/lightningEnergy.png';
 import metalEnergy from '../../assets/energies/metalEnergy.png';
 import psychicEnergy from '../../assets/energies/psychicEnergy.png';
 import waterEnergy from '../../assets/energies/waterEnergy.png';
+import AddCard from '../../Components/AddCard';
 
 type CardInfoProps = {
     card: CardData;
+    selectedCardListId?: string;
+    incrementCardQuantity: (card: CardData) => void;
+    decrementCardQuantity: (card: CardData) => void;
+    deleteCard: (card: CardData) => void;
+    close: () => void;
+    cardQuantity: number;
 };
 
 type EnergyImages = {
     [key: string]: string;
 };
 
-const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
+const CardInfo: React.FC<CardInfoProps> = ({
+    card,
+    selectedCardListId,
+    incrementCardQuantity,
+    decrementCardQuantity,
+    deleteCard,
+    close,
+    cardQuantity
+}) => {
     const [selectedTab, setSelectedTab] = useState(0);
     const isPokemonCard = card.supertype === "Pokémon";
 
@@ -124,7 +139,7 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
                     <img src={card.set.images.logo} alt="Set Symbol" style={{ height: '60px', marginRight: '15px' }} />
                     <Typography variant="h3" style={{ marginRight: '15px' }}>{card.set.name} Set</Typography>
                     <Typography variant="subtitle1">
-                        #{formatNumber(card.number, card.set.total)}/{card.set.total}
+                        #{formatNumber(card.number, card.set.printedTotal)}/{card.set.printedTotal}
                     </Typography>
                 </Box>
                 <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
@@ -212,12 +227,21 @@ const CardInfo: React.FC<CardInfoProps> = ({ card }) => {
 
     return (
         <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2, height: '100%' }}>
-            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <CardMedia
                     component="img"
                     sx={{ maxWidth: '100%', maxHeight: '100%' }}
                     image={card.images.large}
                     alt={card.name}
+                />
+                <AddCard
+                    selectedCardListId={selectedCardListId}
+                    cardQuantity={cardQuantity}
+                    deleteCard={() => deleteCard(card)}
+                    decrementCardQuantity={() => decrementCardQuantity(card)}
+                    incrementCardQuantity={() => incrementCardQuantity(card)}
+                    close={close}
+                    card={card}
                 />
             </Box>
             <Box sx={{ p: 2, flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>

@@ -269,6 +269,7 @@ class ListCard(models.Model):
     mtg_card = models.ForeignKey(MTGCardsData, on_delete=models.SET_NULL, null=True, blank=True)
     lorcana_card = models.ForeignKey(LorcanaCardData, on_delete=models.SET_NULL, null=True, blank=True)
     market_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    collected = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Card List: {self.card_list}, Pokemon Card: {self.pokemon_card}, Yugioh Card: {self.yugioh_card}, MTG Card: {self.mtg_card}, Lorcana Card: {self.lorcana_card}, Market Value: {self.market_value}"

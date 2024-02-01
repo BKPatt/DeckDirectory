@@ -120,9 +120,7 @@ const Lists = () => {
             });
     };
 
-    const fetchListsForType = (type: CardType, page = 1) => {
-        const sortField = sortStates[type].field;
-        const sortDirection = sortStates[type].direction;
+    const fetchListsForType = (type: CardType, page = 1, sortField = 'created_on', sortDirection = 'asc') => {
         axios.get(`http://localhost:8000/api/cardlists/?type=${type}&page=${page}&sort_field=${sortField}&sort_direction=${sortDirection}`)
             .then(response => {
                 updateListData(response.data.results);
@@ -247,7 +245,7 @@ const Lists = () => {
     const renderSortIndicator = (type: CardType, field: string) => {
         const state = sortStates[type];
         if (state.field !== field) return null;
-        return state.direction === 'asc' ? '↑' : '↓';
+        return state.direction === 'asc' ? '↑' : (state.direction === 'desc' ? '↓' : '');
     };
 
     const sortList = (list: CardList[], sortState: { field: SortableFields, direction: 'asc' | 'desc' }): CardList[] => {
@@ -272,16 +270,26 @@ const Lists = () => {
 
     const handleSortChange = (type: CardType, field: SortableFields) => {
         setSortStates(prev => {
-            const isCurrentField = prev[type].field === field;
-            const isAscending = prev[type].direction === 'asc';
+            const currentSort = prev[type];
+            let newDirection = 'asc';
 
-            if (isCurrentField && isAscending) {
-                return { ...prev, [type]: { field, direction: 'desc' } };
-            } else if (isCurrentField && !isAscending) {
-                return { ...prev, [type]: { field: '', direction: 'asc' } };
-            } else {
-                return { ...prev, [type]: { field, direction: 'asc' } };
+            if (currentSort.field === field) {
+                newDirection = currentSort.direction === 'asc' ? 'desc' : (currentSort.direction === 'desc' ? '' : 'asc');
             }
+
+            if (newDirection) {
+                fetchListsForType(type, 1, field, newDirection);
+            } else {
+                fetchListsForType(type, 1);
+            }
+
+            return {
+                ...prev,
+                [type]: {
+                    field: newDirection ? field : '',
+                    direction: newDirection
+                }
+            };
         });
     };
 

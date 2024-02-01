@@ -23,6 +23,12 @@ class LorcanaCardDataSerializer(serializers.ModelSerializer):
 
 class CardListSerializer(serializers.ModelSerializer):
     cards = serializers.SerializerMethodField()
+    market_value = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        coerce_to_string=False,
+        read_only=True
+    )
 
     class Meta:
         model = CardList

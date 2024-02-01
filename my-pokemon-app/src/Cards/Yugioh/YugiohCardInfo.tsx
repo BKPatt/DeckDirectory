@@ -1,12 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider } from '@mui/material';
 import { YugiohCardData } from './YugiohCardData';
+import AddCard from '../../Components/AddCard';
 
 type CardInfoProps = {
     card: YugiohCardData;
+    selectedCardListId?: string;
+    incrementCardQuantity: (card: YugiohCardData) => void;
+    decrementCardQuantity: (card: YugiohCardData) => void;
+    deleteCard: (card: YugiohCardData) => void;
+    close: () => void;
+    cardQuantity: number;
 };
 
-const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
+const YugiohCardInfo: React.FC<CardInfoProps> = ({
+    card,
+    selectedCardListId,
+    incrementCardQuantity,
+    decrementCardQuantity,
+    deleteCard,
+    close,
+    cardQuantity
+}) => {
     const [selectedTab, setSelectedTab] = useState(0);
     const [imageHeight, setImageHeight] = useState<number | undefined>(undefined);
     const [imageAdjustedHeight, setImageAdjustedHeight] = useState<number | undefined>(undefined);
@@ -63,27 +78,36 @@ const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
     );
 
     return (
-        <Box sx={{ display: 'flex', margin: 2, boxShadow: 3, borderRadius: 2 }}>
-            <CardMedia
-                component="img"
-                sx={{
-                    width: '40%',
-                    objectFit: 'cover',
-                    minHeight: imageHeight,
-                    maxHeight: imageHeight,
-                    minWidth: imageWidth,
-                    maxWidth: imageWidth
-                }}
-                image={card.card_images[0]?.image_url}
-                alt={card.name}
-                ref={imageRef}
-                onLoad={() => {
-                    setImageHeight(imageRef.current?.clientHeight);
-                    setImageWidth(imageRef.current?.clientWidth)
-                }}
-            />
-
-            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, maxHeight: imageHeight }}>
+        <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2, height: '100%' }}>
+            <Box sx={{ flexShrink: 0, height: '100%', width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <CardMedia
+                    component="img"
+                    sx={{
+                        objectFit: 'cover',
+                        minHeight: imageHeight,
+                        maxHeight: imageHeight,
+                        minWidth: imageWidth,
+                        maxWidth: imageWidth
+                    }}
+                    image={card.card_images[0]?.image_url}
+                    alt={card.name}
+                    ref={imageRef}
+                    onLoad={() => {
+                        setImageHeight(imageRef.current?.clientHeight);
+                        setImageWidth(imageRef.current?.clientWidth)
+                    }}
+                />
+                <AddCard
+                    selectedCardListId={selectedCardListId}
+                    cardQuantity={cardQuantity}
+                    deleteCard={() => deleteCard(card)}
+                    decrementCardQuantity={() => decrementCardQuantity(card)}
+                    incrementCardQuantity={() => incrementCardQuantity(card)}
+                    close={close}
+                    card={card}
+                />
+            </Box>
+            <Card sx={{ p: 2, flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                 <Box ref={tabBoxRef} sx={{ flexShrink: 0, marginLeft: '10px' }}>
                     <Typography gutterBottom variant="h5" component="div">
                         {card.name}
@@ -152,7 +176,7 @@ const YugiohCardInfo: React.FC<CardInfoProps> = ({ card }) => {
                     )}
                 </Box>
             </Card>
-        </Box>
+        </Card>
     );
 };
 
