@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, TextField, Grid, Card, CardMedia, Typography, Pagination, Button, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, Autocomplete } from '@mui/material';
+import {
+    Box,
+    TextField,
+    Grid,
+    Pagination,
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    FormControl,
+    Autocomplete
+} from '@mui/material';
 import LorcanaCardData from './LorcanaCardData';
 import { CardList, useList } from '../../Types/CardList';
 import LorcanaCardInfo from './LorcanaCardInfo';

@@ -2,7 +2,6 @@ import * as React from 'react';
 import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Box } from '@mui/material';
 import homeIcon from './assets/homeIcon.png';
 import ListIcon from '@mui/icons-material/List';
-import BuildIcon from '@mui/icons-material/Build';
 import InfoIcon from '@mui/icons-material/Info';
 import ChatIcon from '@mui/icons-material/Chat';
 import StarBorderIcon from '@mui/icons-material/StarBorder';

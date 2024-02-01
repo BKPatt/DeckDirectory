@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider, Button } from '@mui/material';
+import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider } from '@mui/material';
 import { CardData } from './CardData';
 import colorlessEnergy from '../../assets/energies/colorlessEnergy.png';
 import darknessEnergy from '../../assets/energies/darknessEnergy.png';

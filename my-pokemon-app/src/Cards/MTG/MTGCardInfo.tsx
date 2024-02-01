@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider } from '@mui/material';
 import { MTGCardData } from './MTGCardData';
 import Default from '../../assets/Default.png'
 import AddCard from '../../Components/AddCard';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Paper, Grid, Card, CardActionArea, CardMedia, CardContent, Typography } from '@mui/material';
 import pokemon from '../assets/pokemon.png'
