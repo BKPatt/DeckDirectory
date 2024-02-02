@@ -367,29 +367,75 @@ def update_list(request, list_id):
         return Response({'error': str(e)}, status=500)
     
 @api_view(['POST'])
-def add_card_to_collection(request):
+def card_collection(request):
     try:
         with transaction.atomic():
             list_id = request.data.get('list_id')
             card_id = request.data.get('card_id')
-            collected = request.data.get('collected', False)
+            card_type = request.data.get('card_type')
+            operation = request.data.get('operation')
+
+            if not all([list_id, card_id, card_type, operation]):
+                return Response({'error': 'Missing required parameters'}, status=400)
 
             card_list = CardList.objects.get(id=list_id)
-            list_card, created = ListCard.objects.get_or_create(
-                card_list=card_list, 
-                pokemon_card_id=card_id,
-                defaults={'collected': collected}
-            )
+            card_key = f"{card_type}_card_id"
 
-            if not created:
-                list_card.collected = collected
-                list_card.save()
+            if operation == 'add':
+                uncollected_card_exists = ListCard.objects.filter(card_list=card_list, **{card_key: card_id}, collected=False).exists()
 
+                if not uncollected_card_exists:
+                    return Response({'error': 'All instances of the card are already added to the collection'}, status=400)
+
+                list_card = ListCard.objects.filter(card_list=card_list, **{card_key: card_id}, collected=False).first()
+                list_card.collected = True
+
+            elif operation == 'remove':
+                list_card = ListCard.objects.filter(card_list=card_list, **{card_key: card_id}, collected=True).first()
+                if list_card:
+                    list_card.collected = False
+                else:
+                    return Response({'error': 'No collected card found to remove'}, status=404)
+            else:
+                return Response({'error': 'Invalid operation'}, status=400)
+
+            list_card.save()
             return Response({'message': 'Card collection status updated successfully.'})
 
     except CardList.DoesNotExist:
         return Response({'error': 'CardList not found'}, status=404)
-    except PokemonCardData.DoesNotExist:
-        return Response({'error': 'Card not found'}, status=404)
     except Exception as e:
-        return Response({'error': str(e)}, status=400)
+        print(str(e))
+        return Response({'error': str(e)}, status=500)
+    
+@api_view(['POST'])
+def set_card_quantity(request):
+    try:
+        with transaction.atomic():
+            list_id = request.data.get('list_id')
+            card_id = request.data.get('card_id')
+            card_type = request.data.get('card_type')
+            collected_status = request.data.get('collected', False)
+
+            if not all([list_id, card_id, card_type]):
+                return Response({'error': 'Missing required parameters'}, status=400)
+
+            try:
+                card_list = CardList.objects.get(id=list_id)
+            except CardList.DoesNotExist:
+                return Response({'error': 'CardList not found'}, status=404)
+
+            card_key = f"{card_type}_card_id"
+            list_cards = ListCard.objects.filter(card_list=card_list, **{card_key: card_id})
+
+            if not list_cards:
+                return Response({'error': 'No cards found with the given ID in the list'}, status=404)
+
+            list_cards.update(collected=collected_status)
+
+            message = 'All card instances collected status updated successfully.'
+            return Response({'message': message, 'collected': collected_status})
+
+    except Exception as e:
+        print(str(e))
+        return Response({'error': str(e)}, status=500)

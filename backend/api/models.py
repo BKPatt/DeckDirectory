@@ -272,7 +272,7 @@ class ListCard(models.Model):
     collected = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Card List: {self.card_list}, Pokemon Card: {self.pokemon_card}, Yugioh Card: {self.yugioh_card}, MTG Card: {self.mtg_card}, Lorcana Card: {self.lorcana_card}, Market Value: {self.market_value}"
+        return f"Card List: {self.card_list}, Pokemon Card: {self.pokemon_card}, Yugioh Card: {self.yugioh_card}, MTG Card: {self.mtg_card}, Lorcana Card: {self.lorcana_card}, Market Value: {self.market_value}, Collected: {self.collected}"
 
     @property
     def card_market_value(self):

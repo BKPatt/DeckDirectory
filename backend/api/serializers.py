@@ -53,4 +53,4 @@ class CardListSerializer(serializers.ModelSerializer):
 class ListCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = ListCard
-        fields = ['id', 'card_list', 'pokemon_card', 'yugioh_card']
+        fields = '__all__'
