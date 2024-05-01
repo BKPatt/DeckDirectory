@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand
 import requests
 from django.db import transaction
 from django.http import JsonResponse
-
 from backend.api.models import MTGCardFace, MTGCardsData, MTGRelatedCard
 
 class Command(BaseCommand):

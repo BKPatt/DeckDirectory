@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 from decouple import Config, RepositoryEnv
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,6 +31,8 @@ ALLOWED_HOSTS = []
 
 env_file = BASE_DIR / '.env'
 config = Config(RepositoryEnv(env_file))
+
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost//'
 
 # Application definition
 
@@ -93,6 +96,17 @@ DATABASES = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
 ]
+
+CELERY_BEAT_SCHEDULE = {
+    'bulk_update_market_values_daily': {
+        'task': 'api.tasks.bulk_update_market_values',
+        'schedule': crontab(hour=0, minute=0),
+    },
+    'bulk_update_collection_values_daily': {
+        'task': 'api.tasks.bulk_update_collection_values',
+        'schedule': crontab(hour=0, minute=0),
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

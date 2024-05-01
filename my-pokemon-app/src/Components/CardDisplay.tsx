@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
     Box,
     Card,
@@ -29,7 +29,7 @@ interface CardDisplayProps {
     collectedQuantities: { [key: string]: number };
 }
 
-const CardDisplay: React.FC<CardDisplayProps> = ({
+const CardDisplay: React.FC<CardDisplayProps> = memo(({
     card,
     onInfoClick,
     onAddCard,
@@ -48,6 +48,8 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
     id,
     collectedQuantities,
 }) => {
+    const isCollected = collectedQuantities[id] > 0;
+
     return (
         <Grid item xs={12} sm={6} md={4} lg={3}>
             <Card>
@@ -165,7 +167,7 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
                 {isSelectedListId && !isInAddMode && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1 }}>
                         <Checkbox
-                            checked={collectedStatus || false}
+                            checked={isCollected}
                             onChange={(e) => onCheckboxChange?.(id, e.target.checked)}
                             color="primary"
                         />
@@ -175,6 +177,7 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <Button
                                 onClick={() => handleDecrementCollectedQuantity(id)}
+                                disabled={collectedQuantities[id] === 0}
                                 sx={{
                                     minWidth: '35px',
                                     backgroundColor: 'transparent',
@@ -184,6 +187,10 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
                                         backgroundColor: 'transparent',
                                         boxShadow: 'none',
                                     },
+                                    '&:disabled': {
+                                        color: 'rgba(0, 0, 0, 0.26)',
+                                        cursor: 'not-allowed',
+                                    },
                                 }}
                             >
                                 -
@@ -191,6 +198,7 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
                             <Typography sx={{ mx: 1 }}>{collectedQuantities[id] || 0}</Typography>
                             <Button
                                 onClick={() => handleIncrementCollectedQuantity(id)}
+                                disabled={collectedQuantities[id] === cardQuantities[id]}
                                 sx={{
                                     minWidth: '35px',
                                     backgroundColor: 'transparent',
@@ -199,6 +207,10 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
                                     '&:hover': {
                                         backgroundColor: 'transparent',
                                         boxShadow: 'none',
+                                    },
+                                    '&:disabled': {
+                                        color: 'rgba(0, 0, 0, 0.26)',
+                                        cursor: 'not-allowed',
                                     },
                                 }}
                             >
@@ -210,6 +222,6 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
             </Card>
         </Grid>
     );
-};
+});
 
 export default CardDisplay;

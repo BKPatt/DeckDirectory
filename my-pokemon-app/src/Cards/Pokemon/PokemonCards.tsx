@@ -258,18 +258,20 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             const newCollectedQuantities: { [key: string]: number } = {};
 
             listCards.forEach((listCard: any) => {
-                const cardId = listCard.pokemon_card;
+                const cardId = listCard.card_id;
                 if (!cardId) return;
 
-                if (!newCollectedQuantities[cardId]) newCollectedQuantities[cardId] = 0;
-                if (listCard.collected) newCollectedQuantities[cardId]++;
-
-                newCollectedStatus[cardId] = newCollectedQuantities[cardId] > 0;
+                if (!newCollectedQuantities[cardId]) {
+                    newCollectedQuantities[cardId] = 0;
+                }
+                if (listCard.collected) {
+                    newCollectedQuantities[cardId]++;
+                    newCollectedStatus[cardId] = true;
+                }
             });
 
             setCollectedStatus(newCollectedStatus);
             setCollectedQuantities(newCollectedQuantities);
-
         } catch (error) {
             console.error(`Error fetching updated list data:`, error);
         }
@@ -277,46 +279,30 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
 
     const handleIncrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] < cardQuantities[cardId]) {
-            const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
-            setCollectedQuantities(newQuantities);
-
-            if (newQuantities[cardId] === 1) {
-                handleCheckboxChange(cardId, true)
-            }
-
             await axios.post('http://localhost:8000/api/card-collection/', {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'pokemon',
                 operation: 'add',
-            }).then(async response => {
-
+            }).then(async () => {
+                await fetchCardListData();
             }).catch(error => {
-                setCollectedQuantities(collectedQuantities);
-                console.error("Error in handleIncrementCollectedQuantity: ", error)
+                console.error("Error in handleIncrementCollectedQuantity: ", error);
             });
         }
     };
 
     const handleDecrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] > 0) {
-            const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] - 1 };
-            setCollectedQuantities(newQuantities);
-
-            if (newQuantities[cardId] === 0) {
-                handleCheckboxChange(cardId, false)
-            }
-
             await axios.post('http://localhost:8000/api/card-collection/', {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'pokemon',
                 operation: 'remove',
-            }).then(async response => {
-
+            }).then(async () => {
+                await fetchCardListData();
             }).catch(error => {
-                setCollectedQuantities(collectedQuantities);
-                console.error("Error in handleDecrementCollectedQuantity: ", error)
+                console.error("Error in handleDecrementCollectedQuantity: ", error);
             });
         }
     };
@@ -325,32 +311,29 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         const newCollectedStatus = { ...collectedStatus, [cardId]: isChecked };
         setCollectedStatus(newCollectedStatus);
 
+        const newCollectedQuantities = { ...collectedQuantities };
+
         if (isChecked) {
-            await axios.post('http://localhost:8000/api/card-collection/', {
-                list_id: selectedListId,
-                card_id: cardId,
-                card_type: 'pokemon',
-                operation: 'add',
-            }).then(async response => {
-                const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
-                setCollectedQuantities(newQuantities);
-            }).catch(error => {
-                setCollectedStatus(collectedStatus);
-                console.error("Error in handleCheckboxChange: ", error)
-            });
+            newCollectedQuantities[cardId] = 1;
         } else {
+            newCollectedQuantities[cardId] = 0;
+        }
+
+        setCollectedQuantities(newCollectedQuantities);
+
+        try {
             await axios.post('http://localhost:8000/api/set-card-quantity/', {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'pokemon',
-                collected: false,
-            }).then(async response => {
-                const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] - collectedQuantities[cardId] };
-                setCollectedQuantities(newQuantities);
-            }).catch(error => {
-                setCollectedStatus(collectedStatus);
-                console.error("Error in handleCheckboxChange: ", error)
+                collected: isChecked,
+                quantity: isChecked ? 1 : 0,
             });
+            await fetchCardListData();
+        } catch (error) {
+            setCollectedStatus(collectedStatus);
+            setCollectedQuantities(collectedQuantities);
+            console.error("Error in handleCheckboxChange: ", error);
         }
     };
 
@@ -384,24 +367,28 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
     };
 
     const decrementCardQuantity = async (card: CardData) => {
-        setCardQuantities(prevQuantities => {
-            if (prevQuantities[card.id] > 1) {
-                updateCardQuantity(card.id, 'decrement');
-                return { ...prevQuantities, [card.id]: prevQuantities[card.id] - 1 };
+        if (cardQuantities[card.id] > 1) {
+            setCardQuantities(prevQuantities => ({
+                ...prevQuantities,
+                [card.id]: prevQuantities[card.id] - 1,
+            }));
+
+            if (collectedQuantities[card.id] === cardQuantities[card.id]) {
+                handleDecrementCollectedQuantity(card.id);
             }
-            return prevQuantities;
-        });
-        handleListUpdate();
-        handleDecrementCollectedQuantity(card.id)
-        await handleCardQuantityChange();
+
+            await updateCardQuantity(card.id, 'decrement');
+            if (selectedListId) {
+                await fetchUpdatedListDetails(selectedListId);
+            }
+            await handleCardQuantityChange();
+        }
     };
 
     const handleDeleteCard = async (card: CardData) => {
-        deleteCardFromList(card.id).then(() => {
-            fetchData(currentPage);
-        });
-        handleListUpdate();
-        handleDecrementCollectedQuantity(card.id)
+        await deleteCardFromList(card.id);
+        await fetchData(currentPage);
+        await handleListUpdate();
         await handleCardQuantityChange();
     };
 

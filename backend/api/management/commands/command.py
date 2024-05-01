@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand, CommandError
-from backend.api import YugiohCard, CardSet, CardImage, CardPrice
+from backend.api.models import YugiohCard, CardSet, CardImage, CardPrice
 import requests
 
 class Command(BaseCommand):

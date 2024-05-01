@@ -17,6 +17,21 @@ interface ListDialogProps {
     onClose: () => void;
 }
 
+interface ListCard {
+    id: number;
+    pokemon_card: number | null;
+    yugioh_card: number | null;
+    mtg_card: number | null;
+    lorcana_card: number | null;
+    market_value: number;
+    collected: boolean;
+}
+
+interface UpdatedList extends CardList {
+    collection_value: number;
+    market_value: number;
+}
+
 const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [currentList, setCurrentList] = useState<CardList | null>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -25,17 +40,28 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
 
     useEffect(() => {
         if (list) {
-            setCurrentList(list)
+            setCurrentList(list);
             setEditedTitle(list.name);
+            fetchUpdatedList();
         }
-    }, []);
+    }, [list]);
 
-    const fetchUpdatedList = async () => {
+    const fetchUpdatedList = async (): Promise<void> => {
         if (currentList) {
             try {
-                const response = await axios.get(`http://localhost:8000/api/get-list-by-id/${currentList.id}/`);
+                const response = await axios.get<{ card_list: UpdatedList; list_cards: ListCard[] }>(`http://localhost:8000/api/get-list-by-id/${currentList.id}/`);
                 if (response.data) {
-                    setCurrentList(response.data.card_list);
+                    const updatedList = response.data.card_list;
+                    const listCards = response.data.list_cards;
+
+                    const collectionValue = listCards.reduce((total, listCard) => {
+                        if (listCard.collected) {
+                            return total + listCard.market_value;
+                        }
+                        return total;
+                    }, 0);
+
+                    setCurrentList({ ...updatedList, collection_value: collectionValue });
                 }
             } catch (error) {
                 console.error('Error fetching updated list:', error);
@@ -111,6 +137,13 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
             <DialogTitle textAlign="center" marginBottom={'15px'} onClick={() => setIsEditing(true)}>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
                     <Box>
+                        {currentList && (
+                            <Box>
+                                Collection Value: ${typeof currentList.collection_value === 'number' ? currentList.collection_value.toFixed(2) : parseFloat(currentList.collection_value).toFixed(2)}
+                            </Box>
+                        )}
+                    </Box>
+                    <Box>
                         {isEditing ? (
                             <TextField
                                 fullWidth
@@ -126,8 +159,8 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
                     </Box>
                     <Box>
                         {currentList && (
-                            <Box style={{ textAlign: 'right', marginRight: '10px' }}>
-                                Market Value: ${currentList.market_value}
+                            <Box>
+                                List Value: ${typeof currentList.market_value === 'number' ? currentList.market_value.toFixed(2) : parseFloat(currentList.market_value).toFixed(2)}
                             </Box>
                         )}
                     </Box>
@@ -141,6 +174,14 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
                 )}
             </DialogContent>
             <DialogActions>
+                <Box display="flex" width={'100%'} justifyContent="left" alignItems="center">
+                    <Button>
+                        Buy Missing Cards
+                    </Button>
+                    <Button>
+                        List Collected Cards
+                    </Button>
+                </Box>
                 <Button onClick={onClose}>Close</Button>
             </DialogActions>
         </Dialog>

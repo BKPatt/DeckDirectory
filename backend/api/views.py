@@ -34,6 +34,60 @@ def calculate_average_price(prices):
 
     return average
 
+def get_card_market_price(card, card_type):
+    """
+    Calculate the market price of a card based on its type.
+    This function should be adjusted based on your model fields and logic.
+    """
+    if card_type == 'pokemon':
+        price_values = []
+        if card.tcgplayer and card.tcgplayer.prices:
+            price_values.append(card.tcgplayer.prices.get('trendPrice', 0))
+            price_values.append(card.tcgplayer.prices.get('reverseHoloTrend', 0))
+        if card.cardmarket and card.cardmarket.prices:
+            price_values.append(card.cardmarket.prices.get('averageSellPrice', 0))
+        return calculate_average_price([Decimal(str(price)) for price in price_values])
+
+    elif card_type == 'yugioh':
+        price_values = []
+        prices = card.card_prices.all()
+        for price in prices:
+            if price.cardmarket_price:
+                price_values.append(Decimal(price.cardmarket_price))
+            if price.ebay_price:
+                price_values.append(Decimal(price.ebay_price))
+            if price.amazon_price:
+                price_values.append(Decimal(price.amazon_price))
+            if price.tcgplayer_price:
+                price_values.append(Decimal(price.tcgplayer_price))
+            if price.coolstuffinc_price:
+                price_values.append(Decimal(price.coolstuffinc_price))
+        return calculate_average_price(price_values)
+
+    elif card_type == 'mtg':
+        return Decimal(card.prices.get('usd', 0)) if card.prices and 'usd' in card.prices else Decimal('0.00')
+
+    elif card_type == 'lorcana':
+        return Decimal(card.cost) if card.cost else Decimal('0.00')
+
+    return Decimal('0.00')
+
+def get_card_type_and_instance(list_card):
+    """
+    Determine the card's type and retrieve its instance from a ListCard object.
+    Adjust the attribute names based on your actual model fields.
+    """
+    if list_card.pokemon_card:
+        return 'pokemon', list_card.pokemon_card
+    elif list_card.yugioh_card:
+        return 'yugioh', list_card.yugioh_card
+    elif list_card.mtg_card:
+        return 'mtg', list_card.mtg_card
+    elif list_card.lorcana_card:
+        return 'lorcana', list_card.lorcana_card
+    else:
+        return None, None
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 env_file = BASE_DIR / '.env'
 config = Config(RepositoryEnv(env_file))
@@ -107,11 +161,20 @@ def add_card_to_list(request):
             card = PokemonCardData.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, pokemon_card=card)
 
-            market_value_increase = 0
-            if card.cardmarket and card.cardmarket.prices:
-                market_value_increase = Decimal(card.cardmarket.prices.get('averageSellPrice', {}))
+            price_values = []
 
-            updated_list.market_value += market_value_increase
+            if card.tcgplayer and card.tcgplayer.prices:
+                price_values.append(card.tcgplayer.prices.get('trendPrice', 0))
+                price_values.append(card.tcgplayer.prices.get('reverseHoloTrend', 0))
+
+            if card.cardmarket and card.cardmarket.prices:
+                price_values.append(card.cardmarket.prices.get('averageSellPrice', 0))
+
+            if price_values:
+                average_market_price = calculate_average_price([Decimal(str(price)) for price in price_values])
+                updated_list.market_value += average_market_price
+            else:
+                print("No price data available for this card")
         elif card_type == 'yugioh':
             card = YugiohCard.objects.get(id=card_id)
             list_card = ListCard(card_list_id=list_id, yugioh_card=card)
@@ -181,6 +244,7 @@ def update_card_quantity(request):
         card_id = request.data.get('card_id')
         card_type = request.data.get('card_type')
         operation = request.data.get('operation')
+        is_collected = request.data.get('is_collected', False)
 
         updated_list = CardList.objects.get(id=list_id)
 
@@ -194,8 +258,21 @@ def update_card_quantity(request):
         price_change = Decimal(0)
         if card_type == 'pokemon':
             card = PokemonCardData.objects.get(id=card_id)
+
+            price_values = []
+
+            if card.tcgplayer and card.tcgplayer.prices:
+                price_values.append(card.tcgplayer.prices.get('trendPrice', 0))
+                price_values.append(card.tcgplayer.prices.get('reverseHoloTrend', 0))
+
             if card.cardmarket and card.cardmarket.prices:
-                price_change = Decimal(card.cardmarket.prices.get('averageSellPrice', 0))
+                price_values.append(card.cardmarket.prices.get('averageSellPrice', 0))
+
+            if price_values:
+                average_market_price = calculate_average_price([Decimal(str(price)) for price in price_values])
+                updated_list.market_value += average_market_price
+            else:
+                print("No price data available for this card")
         elif card_type == 'yugioh':
             card = YugiohCard.objects.get(id=card_id)
             prices = card.card_prices.all()
@@ -228,10 +305,13 @@ def update_card_quantity(request):
         if operation == 'increment':
             new_card = ListCard(card_list_id=list_id, **{f"{card_type}_card": card})
             new_card.save()
-            updated_list.market_value += price_change
         elif operation == 'decrement' and list_cards.exists():
-            list_cards.first().delete()
-            updated_list.market_value -= price_change
+            card_to_remove = list_cards.first()
+            if is_collected and card_to_remove.collected:
+                card_to_remove.collected = False
+                card_to_remove.save()
+            else:
+                card_to_remove.delete()
         else:
             return Response({'error': 'Invalid operation'}, status=400)
 
@@ -301,10 +381,44 @@ def get_list_by_id(request, list_id):
     try:
         card_list = CardList.objects.prefetch_related('list_cards').get(id=list_id)
 
-        card_list_data = CardListSerializer(card_list).data
-
         list_cards = card_list.list_cards.all()
-        list_card_data = [ListCardSerializer(card).data for card in list_cards]
+        list_card_data = []
+        collection_value = Decimal('0.00')
+        market_value = Decimal('0.00')
+
+        for list_card in list_cards:
+            card_type, card_instance = get_card_type_and_instance(list_card)
+            if card_instance is None:
+                continue
+
+            card_price = get_card_market_price(card_instance, card_type)
+            market_value += card_price
+
+            if list_card.collected:
+                collection_value += card_price
+
+            list_card_data.append({
+                'id': list_card.id,
+                'card_type': card_type,
+                'card_id': card_instance.id,
+                'market_value': card_price,
+                'collected': list_card.collected
+            })
+
+        card_list.market_value = market_value
+        card_list.collection_value = collection_value
+        card_list.save()
+
+        card_list_data = {
+            'id': card_list.id,
+            'created_by': card_list.created_by,
+            'created_on': card_list.created_on,
+            'name': card_list.name,
+            'type': card_list.type,
+            'market_value': market_value,
+            'collection_value': collection_value,
+            'needs_update': card_list.needs_update
+        }
 
         response_data = {
             'card_list': card_list_data,
@@ -316,6 +430,7 @@ def get_list_by_id(request, list_id):
     except CardList.DoesNotExist:
         logger.error(f"CardList not found: list_id={list_id}")
         return Response({'error': 'CardList not found'}, status=404)
+
     except Exception as e:
         logger.error(f"Error retrieving list by ID: {e}")
         return Response({'error': str(e)}, status=500)
@@ -368,8 +483,8 @@ def update_list(request, list_id):
     
 @api_view(['POST'])
 def card_collection(request):
-    try:
-        with transaction.atomic():
+    with transaction.atomic():
+        try:
             list_id = request.data.get('list_id')
             card_id = request.data.get('card_id')
             card_type = request.data.get('card_type')
@@ -380,62 +495,71 @@ def card_collection(request):
 
             card_list = CardList.objects.get(id=list_id)
             card_key = f"{card_type}_card_id"
+            list_cards = ListCard.objects.filter(card_list=card_list, **{card_key: card_id})
+
+            if not list_cards.exists():
+                return Response({'error': 'Card not found in the list'}, status=404)
 
             if operation == 'add':
-                uncollected_card_exists = ListCard.objects.filter(card_list=card_list, **{card_key: card_id}, collected=False).exists()
-
-                if not uncollected_card_exists:
-                    return Response({'error': 'All instances of the card are already added to the collection'}, status=400)
-
-                list_card = ListCard.objects.filter(card_list=card_list, **{card_key: card_id}, collected=False).first()
-                list_card.collected = True
-
-            elif operation == 'remove':
-                list_card = ListCard.objects.filter(card_list=card_list, **{card_key: card_id}, collected=True).first()
-                if list_card:
-                    list_card.collected = False
+                uncollected_card = list_cards.filter(collected=False).first()
+                if uncollected_card:
+                    uncollected_card.collected = True
+                    uncollected_card.save()
+                    card_list.collection_value += uncollected_card.market_value
+                    card_list.save()
                 else:
-                    return Response({'error': 'No collected card found to remove'}, status=404)
+                    return Response({'error': 'All instances of the card are already collected'}, status=400)
+            elif operation == 'remove':
+                collected_card = list_cards.filter(collected=True).first()
+                if collected_card:
+                    collected_card.collected = False
+                    collected_card.save()
+                    card_list.collection_value -= collected_card.market_value
+                    card_list.save()
+                else:
+                    return Response({'error': 'No collected instances of the card found'}, status=400)
             else:
                 return Response({'error': 'Invalid operation'}, status=400)
 
-            list_card.save()
             return Response({'message': 'Card collection status updated successfully.'})
 
-    except CardList.DoesNotExist:
-        return Response({'error': 'CardList not found'}, status=404)
-    except Exception as e:
-        print(str(e))
-        return Response({'error': str(e)}, status=500)
+        except CardList.DoesNotExist:
+            return Response({'error': 'CardList not found'}, status=404)
+        except Exception as e:
+            logger.error(f"Error updating card collection: {e}")
+            return Response({'error': str(e)}, status=500)
     
 @api_view(['POST'])
 def set_card_quantity(request):
-    try:
-        with transaction.atomic():
+    with transaction.atomic():
+        try:
             list_id = request.data.get('list_id')
             card_id = request.data.get('card_id')
             card_type = request.data.get('card_type')
-            collected_status = request.data.get('collected', False)
+            new_collected_status = request.data.get('collected', False)
 
             if not all([list_id, card_id, card_type]):
                 return Response({'error': 'Missing required parameters'}, status=400)
 
-            try:
-                card_list = CardList.objects.get(id=list_id)
-            except CardList.DoesNotExist:
-                return Response({'error': 'CardList not found'}, status=404)
+            card_list = CardList.objects.get(id=list_id)
+            list_cards = ListCard.objects.filter(card_list_id=list_id, **{f"{card_type}_card_id": card_id})
 
-            card_key = f"{card_type}_card_id"
-            list_cards = ListCard.objects.filter(card_list=card_list, **{card_key: card_id})
+            if not list_cards.exists():
+                return Response({'error': 'Card not found in the list'}, status=404)
 
-            if not list_cards:
-                return Response({'error': 'No cards found with the given ID in the list'}, status=404)
+            if new_collected_status:
+                uncollected_card = list_cards.filter(collected=False).first()
+                if uncollected_card:
+                    uncollected_card.collected = True
+                    uncollected_card.save()
+            else:
+                collected_cards = list_cards.filter(collected=True)
+                collected_cards.update(collected=False)
 
-            list_cards.update(collected=collected_status)
+            return Response({'message': 'Card quantities updated successfully.'})
 
-            message = 'All card instances collected status updated successfully.'
-            return Response({'message': message, 'collected': collected_status})
-
-    except Exception as e:
-        print(str(e))
-        return Response({'error': str(e)}, status=500)
+        except CardList.DoesNotExist:
+            return Response({'error': 'CardList not found'}, status=404)
+        except Exception as e:
+            logger.error(f"Error setting card quantity: {e}")
+            return Response({'error': str(e)}, status=500)

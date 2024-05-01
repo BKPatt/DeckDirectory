@@ -12,10 +12,12 @@ class CardList(models.Model):
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=50)
     market_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    collection_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     cards = models.ForeignKey
     yugioh_cards = models.ForeignKey
     mtg_cards = models.ForeignKey
     lorcana_cards = models.ForeignKey
+    needs_update = models.BooleanField(default=False)
 
     def __str__(self):
         return f'ID: {self.id}, Created by: {self.created_by}, Created on: {self.created_on}, Name: {self.name}, Type: {self.type}, Market Value: {self.market_value}'
@@ -281,6 +283,9 @@ class ListCard(models.Model):
             return Decimal(price) if price is not None else Decimal('0.00')
         return Decimal('0.00')
 
+    @property
+    def card_instance(self):
+        return self.pokemon_card or self.yugioh_card or self.mtg_card or self.lorcana_card
 
     def save(self, *args, **kwargs):
         self.market_value = self.card_market_value or Decimal('0.00')
