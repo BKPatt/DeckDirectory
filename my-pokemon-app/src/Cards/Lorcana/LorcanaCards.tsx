@@ -79,9 +79,17 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: LorcanaCardData[] = response.data.data;
 
+                const listCardResponse = await axios.get(`http://localhost:8000/api/get-list-by-id/${selectedListId}/`);
+                const listCards = listCardResponse.data;
+
                 const quantities: { [key: string]: number } = {};
                 fetchedCards.forEach(card => {
                     quantities[card.id] = card.card_count;
+
+                    const listCard = listCards.list_cards.find((lc: any) => lc.card_id === card.id);
+                    if (listCard) {
+                        card.cardIdList = listCard.id;
+                    }
                 });
 
                 setCards(response.data.data.map((card: any) => ({
@@ -511,6 +519,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
                         name={card.Name}
                         id={card.id.toString()}
                         collectedQuantities={collectedQuantities}
+                        cardListId={card.cardIdList}
                     />
                 ))}
             </Grid>

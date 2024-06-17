@@ -155,11 +155,12 @@ def add_card_to_list(request):
         list_id = request.data.get('list_id')
         card_id = request.data.get('card_id')
         card_type = request.data.get('card_type')
+        card_type_value = request.data.get('card_type_value')
         updated_list = CardList.objects.get(id=list_id)
 
         if card_type == 'pokemon':
             card = PokemonCardData.objects.get(id=card_id)
-            list_card = ListCard(card_list_id=list_id, pokemon_card=card)
+            list_card = ListCard(card_list_id=list_id, pokemon_card=card, card_type=card_type_value)
 
             price_values = []
 
@@ -177,7 +178,7 @@ def add_card_to_list(request):
                 print("No price data available for this card")
         elif card_type == 'yugioh':
             card = YugiohCard.objects.get(id=card_id)
-            list_card = ListCard(card_list_id=list_id, yugioh_card=card)
+            list_card = ListCard(card_list_id=list_id, yugioh_card=card, card_type=card_type_value)
 
             prices = card.card_prices.all()
             if prices.exists():
@@ -200,7 +201,7 @@ def add_card_to_list(request):
                 print("No price data available for this card")
         elif card_type == 'mtg':
             card = MTGCardsData.objects.get(id=card_id)
-            list_card = ListCard(card_list_id=list_id, mtg_card=card)
+            list_card = ListCard(card_list_id=list_id, mtg_card=card, card_type=card_type_value)
 
             market_value_increase = Decimal(0)
             if card.prices:
@@ -211,7 +212,7 @@ def add_card_to_list(request):
             updated_list.market_value += market_value_increase
         elif card_type == 'lorcana':
             card = LorcanaCardData.objects.get(id=card_id)
-            list_card = ListCard(card_list_id=list_id, lorcana_card=card)
+            list_card = ListCard(card_list_id=list_id, lorcana_card=card, card_type=card_type_value)
 
             market_value_increase = 0
             if card.cost:
@@ -402,7 +403,8 @@ def get_list_by_id(request, list_id):
                 'card_type': card_type,
                 'card_id': card_instance.id,
                 'market_value': card_price,
-                'collected': list_card.collected
+                'collected': list_card.collected,
+                'card_type_rarity': list_card.card_type,
             })
 
         card_list.market_value = market_value
@@ -433,6 +435,60 @@ def get_list_by_id(request, list_id):
 
     except Exception as e:
         logger.error(f"Error retrieving list by ID: {e}")
+        return Response({'error': str(e)}, status=500)
+    
+@api_view(['POST'])
+def update_card_type(request):
+    list_id = request.data.get('list_id')
+    list_card_id = request.data.get('list_card_id')
+    new_card_type = request.data.get('new_card_type')
+
+    try:
+        list_card = ListCard.objects.get(id=list_card_id, card_list_id=list_id)
+        list_card.card_type = new_card_type
+        list_card.save()
+        return Response({'message': 'Card type updated successfully.'})
+    except ListCard.DoesNotExist:
+        return Response({'error': 'Card instance not found in the list'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating card type: {e}")
+        return Response({'error': str(e)}, status=500)
+    
+@api_view(['POST'])
+def update_card_type_quantity(request, list_id, card_list_id):
+    card_type = request.data.get('cardType')
+    operation = request.data.get('operation')
+
+    try:
+        list_card = ListCard.objects.get(card_list_id=list_id, id=card_list_id)
+        list_cards_of_type = ListCard.objects.filter(card_list_id=list_id, card_type=list_card.card_type)
+    except ListCard.DoesNotExist:
+        return Response({'error': 'List card not found'}, status=404)
+
+    if operation == 'increment':
+        if list_cards_of_type.count() < list_card.quantity:
+            new_list_card = ListCard(card_list_id=list_id, card_type=list_card.card_type)
+            new_list_card.save()
+    elif operation == 'decrement' and list_cards_of_type.count() > 0:
+        list_card_to_remove = list_cards_of_type.order_by('?').first()
+        list_card_to_remove.delete()
+    else:
+        return Response({'error': 'Invalid operation'}, status=400)
+
+    return Response({'message': 'Card type quantity updated successfully'})
+
+@api_view(['GET'])
+def card_type_quantities(request, list_id, card_list_id):
+    try:
+        list_card = ListCard.objects.get(card_list_id=list_id, id=card_list_id)
+        card_type = list_card.card_type
+        quantities = ListCard.objects.filter(card_list_id=list_id, card_type=card_type).values('card_type').annotate(quantity=Count('id'))
+        quantities_dict = {q['card_type']: q['quantity'] for q in quantities}
+        return Response(quantities_dict)
+    except ListCard.DoesNotExist:
+        return Response({'error': 'List card not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error retrieving card type quantities: {e}")
         return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])

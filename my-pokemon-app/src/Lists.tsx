@@ -38,6 +38,7 @@ import BasketballCards from './Cards/BasketballCards';
 import HockeyCards from './Cards/HockeyCards';
 import axios from 'axios';
 import Pagination from '@mui/material/Pagination';
+import { OptionType } from './Types/Options';
 
 const Lists = () => {
     const { listData, updateListData } = useList();
@@ -52,6 +53,7 @@ const Lists = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const clickableStyle = { cursor: 'pointer' };
     const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
+    const [isCollectionView, setIsCollectionView] = useState(false);
     const [paginationState, setPaginationState] = useState<Record<CardType, { currentPage: number, totalPages: number }>>({
         'Pokemon': { currentPage: 1, totalPages: 0 },
         'MTG': { currentPage: 1, totalPages: 0 },
@@ -83,6 +85,12 @@ const Lists = () => {
         'Basketball': { field: 'name', direction: 'asc' },
         'Hockey': { field: 'name', direction: 'asc' },
     });
+
+    const handleCardTypeChange = async (cardId: string, cardType: OptionType | null) => {
+        // Implement the logic to update the card type in the database
+        // You can make an API call to your backend to update the card type
+        // Example: await axios.put(`/api/cards/${cardId}`, { cardType });
+    };
 
     const createNewList = () => {
         if (!newListName.trim()) {
@@ -194,9 +202,15 @@ const Lists = () => {
                 method: 'DELETE',
             })
                 .then(() => {
-                    updateListData(listData.filter(list => list.id !== listToDelete.id));
+                    const updatedListData = listData.filter(list => list.id !== listToDelete.id);
+                    updateListData(updatedListData);
+                    setListDataByType(prevData => ({
+                        ...prevData,
+                        [listToDelete.type]: prevData[listToDelete.type].filter(list => list.id !== listToDelete.id),
+                    }));
                     setDeleteDialogOpen(false);
                     setListToDelete(null);
+                    fetchAllLists();
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -372,7 +386,12 @@ const Lists = () => {
     switch (selectedList?.type) {
         case 'Pokemon':
             addCardsDialogContent = (
-                <PokemonCards selectedListId={selectedList?.id} isInAddMode={isInAddMode} onListQuantityChange={fetchAllLists} />
+                <PokemonCards
+                    selectedListId={selectedList?.id}
+                    isInAddMode={isInAddMode}
+                    onListQuantityChange={fetchAllLists}
+                    isCollectionView={isCollectionView}
+                />
             );
             break;
         case 'MTG':

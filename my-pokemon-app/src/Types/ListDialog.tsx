@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, FormControlLabel, Switch } from '@mui/material';
 import PokemonCards from '../Cards/Pokemon/PokemonCards';
 import MTGCards from '../Cards/MTG/MTGCards';
 import YugiohCards from '../Cards/Yugioh/YugiohCards';
@@ -11,6 +11,8 @@ import HockeyCards from '../Cards/HockeyCards';
 import CardType from './CardType';
 import { CardList, useList } from './CardList';
 import axios from 'axios';
+import ConnectEbayAccount from '../eBay/ConnectEbayAccount';
+import { OptionType } from './Options';
 
 interface ListDialogProps {
     list: CardList | null;
@@ -37,12 +39,33 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
     const { updateListInDatabase } = useList();
+    const [isEbayConnected, setIsEbayConnected] = useState(false);
+    const [ebayAccessToken, setEbayAccessToken] = useState<string | null>(null);
+    const [ebayRefreshToken, setEbayRefreshToken] = useState<string | null>(null);
+    const [showEbayModal, setShowEbayModal] = useState(false);
+    const [isCollectionView, setIsCollectionView] = useState(false);
+
+    const handleCardTypeChange = async (listCardId: number, cardId: string, cardType: OptionType | null) => {
+        if (currentList) {
+            try {
+                await axios.post('http://localhost:8000/api/update-card-type/', {
+                    list_id: currentList.id,
+                    list_card_id: listCardId,
+                    new_card_type: cardType,
+                });
+                await fetchUpdatedList();
+            } catch (error) {
+                console.error("Error updating card type: ", error);
+            }
+        }
+    };
 
     useEffect(() => {
         if (list) {
             setCurrentList(list);
             setEditedTitle(list.name);
             fetchUpdatedList();
+
         }
     }, [list]);
 
@@ -85,6 +108,26 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
         }
     };
 
+    const handleEbayConnect = (accessToken: string, refreshToken: string) => {
+        setEbayAccessToken(accessToken);
+        setEbayRefreshToken(refreshToken);
+        setIsEbayConnected(true);
+    };
+
+    const handleEbayDisconnect = () => {
+        setEbayAccessToken(null);
+        setEbayRefreshToken(null);
+        setIsEbayConnected(false);
+    };
+
+    const openEbayModal = () => {
+        setShowEbayModal(true);
+    };
+
+    const closeEbayModal = () => {
+        setShowEbayModal(false);
+    };
+
     const renderCardContent = (listType: CardType) => {
         switch (listType) {
             case 'Pokemon':
@@ -93,6 +136,9 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
                         selectedListId={currentList?.id}
                         isInAddMode={false}
                         onListQuantityChange={fetchUpdatedList}
+                        onCollectionQuantityChange={fetchUpdatedList}
+                        isCollectionView={isCollectionView}
+                        onCardTypeChange={handleCardTypeChange}
                     />
                 );
             case 'MTG':
@@ -133,58 +179,86 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     };
 
     return (
-        <Dialog open={Boolean(currentList)} onClose={onClose} fullWidth maxWidth="lg">
-            <DialogTitle textAlign="center" marginBottom={'15px'} onClick={() => setIsEditing(true)}>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Box>
-                        {currentList && (
-                            <Box>
-                                Collection Value: ${typeof currentList.collection_value === 'number' ? currentList.collection_value.toFixed(2) : parseFloat(currentList.collection_value).toFixed(2)}
-                            </Box>
-                        )}
-                    </Box>
-                    <Box>
-                        {isEditing ? (
-                            <TextField
-                                fullWidth
-                                autoFocus
-                                value={editedTitle}
-                                onChange={handleTitleChange}
-                                onKeyDown={handleKeyDown}
-                                onBlur={() => setIsEditing(false)}
+        <>
+            <Dialog open={Boolean(currentList)} onClose={onClose} fullWidth maxWidth="lg">
+                <DialogTitle textAlign="center" marginBottom={'15px'}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Box>
+                            {currentList && (
+                                <Box>
+                                    Collection Value: ${typeof currentList.collection_value === 'number' ? currentList.collection_value.toFixed(2) : parseFloat(currentList.collection_value).toFixed(2)}
+                                </Box>
+                            )}
+                        </Box>
+                        <Box>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={isCollectionView}
+                                        onChange={(e) => setIsCollectionView(e.target.checked)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        color="primary"
+                                    />
+                                }
+                                label="Collection View"
                             />
+                        </Box>
+                        <Box onClick={() => setIsEditing(true)}>
+                            {isEditing ? (
+                                <TextField
+                                    fullWidth
+                                    autoFocus
+                                    value={editedTitle}
+                                    onChange={handleTitleChange}
+                                    onKeyDown={handleKeyDown}
+                                    onBlur={() => setIsEditing(false)}
+                                />
+                            ) : (
+                                editedTitle
+                            )}
+                        </Box>
+                        <Box>
+                            {currentList && (
+                                <Box>
+                                    List Value: ${typeof currentList.market_value === 'number' ? currentList.market_value.toFixed(2) : parseFloat(currentList.market_value).toFixed(2)}
+                                </Box>
+                            )}
+                        </Box>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    {currentList && (
+                        <>
+                            {renderCardContent(currentList.type)}
+                        </>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Box display="flex" width={'100%'} justifyContent="left" alignItems="center">
+                        {isEbayConnected ? (
+                            <>
+                                <Button onClick={() => console.log('Buy missing cards using eBay')}>
+                                    Buy Missing Cards
+                                </Button>
+                                <Button onClick={() => console.log('List collected cards on eBay')}>
+                                    List Collected Cards
+                                </Button>
+                            </>
                         ) : (
-                            editedTitle
+                            <Button onClick={openEbayModal}>Connect eBay Account</Button>
                         )}
                     </Box>
-                    <Box>
-                        {currentList && (
-                            <Box>
-                                List Value: ${typeof currentList.market_value === 'number' ? currentList.market_value.toFixed(2) : parseFloat(currentList.market_value).toFixed(2)}
-                            </Box>
-                        )}
-                    </Box>
-                </Box>
-            </DialogTitle>
-            <DialogContent>
-                {currentList && (
-                    <>
-                        {renderCardContent(currentList.type)}
-                    </>
-                )}
-            </DialogContent>
-            <DialogActions>
-                <Box display="flex" width={'100%'} justifyContent="left" alignItems="center">
-                    <Button>
-                        Buy Missing Cards
-                    </Button>
-                    <Button>
-                        List Collected Cards
-                    </Button>
-                </Box>
-                <Button onClick={onClose}>Close</Button>
-            </DialogActions>
-        </Dialog>
+                    <Button onClick={onClose}>Close</Button>
+                </DialogActions>
+            </Dialog>
+            <ConnectEbayAccount
+                open={showEbayModal}
+                onClose={closeEbayModal}
+                onConnect={handleEbayConnect}
+                clientId={process.env.REACT_APP_EBAY_CLIENT_ID || ''}
+                redirectUri={process.env.REACT_APP_EBAY_REDIRECT_URI || ''}
+            />
+        </>
     );
 };
 

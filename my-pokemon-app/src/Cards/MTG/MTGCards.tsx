@@ -62,9 +62,17 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: MTGCardData[] = response.data.data;
 
+                const listCardResponse = await axios.get(`http://localhost:8000/api/get-list-by-id/${selectedListId}/`);
+                const listCards = listCardResponse.data;
+
                 const quantities: { [key: string]: number } = {};
                 fetchedCards.forEach(card => {
                     quantities[card.id] = card.card_count;
+
+                    const listCard = listCards.list_cards.find((lc: any) => lc.card_id === card.id);
+                    if (listCard) {
+                        card.cardIdList = listCard.id;
+                    }
                 });
 
                 setCards(fetchedCards);
@@ -481,6 +489,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                         name={card.name}
                         id={card.id}
                         collectedQuantities={collectedQuantities}
+                        cardListId={card.cardIdList}
                     />
                 ))}
             </Grid>

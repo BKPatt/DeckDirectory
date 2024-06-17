@@ -86,9 +86,17 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListQuantityChange?: () => vo
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: YugiohCardData[] = response.data.data;
 
+                const listCardResponse = await axios.get(`http://localhost:8000/api/get-list-by-id/${selectedListId}/`);
+                const listCards = listCardResponse.data;
+
                 const quantities: { [key: string]: number } = {};
                 fetchedCards.forEach(card => {
                     quantities[card.id] = card.card_count;
+
+                    const listCard = listCards.list_cards.find((lc: any) => lc.card_id === card.id);
+                    if (listCard) {
+                        card.cardIdList = listCard.id;
+                    }
                 });
 
                 setCards(fetchedCards);
@@ -523,6 +531,7 @@ const YugiohCards: React.FC<YugiohCardsProps & { onListQuantityChange?: () => vo
                         name={card.name}
                         id={card.id.toString()}
                         collectedQuantities={collectedQuantities}
+                        cardListId={card.cardIdList}
                     />
                 ))}
             </Grid>

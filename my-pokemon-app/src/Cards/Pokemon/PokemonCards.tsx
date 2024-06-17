@@ -22,7 +22,14 @@ import { SortOptionType, OptionType, CardProps } from '../../Types/Options';
 import FilterFormControl from '../../Components/FilterFormControl';
 import CardDisplay from '../../Components/CardDisplay';
 
-const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
+const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void; onCollectionQuantityChange?: () => void; isCollectionView: boolean; onCardTypeChange?: (listCardId: number, cardId: string, cardType: OptionType | null) => void; }> = ({
+    selectedListId,
+    isInAddMode,
+    onListQuantityChange,
+    onCollectionQuantityChange,
+    isCollectionView,
+    onCardTypeChange,
+}) => {
     const [cards, setCards] = useState<CardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -118,10 +125,30 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: CardData[] = response.data.data;
 
+                const listCardResponse = await axios.get(`http://localhost:8000/api/get-list-by-id/${selectedListId}/`);
+                const listCards = listCardResponse.data;
+
+                const cardTypeRarityMap: { [key: string]: string } = {};
+                listCards.list_cards.forEach((listCard: any) => {
+                    if (listCard.card_id && listCard.card_type_rarity) {
+                        cardTypeRarityMap[listCard.card_id] = listCard.card_type_rarity;
+                    }
+                });
+
                 fetchedCards.map((card: CardData) => {
                     if (card.tcgplayer) {
                         card.tcgplayer = transformTcgplayerData(card.tcgplayer);
                     }
+                    card.card_type_rarity = cardTypeRarityMap[card.id];
+                    if (!card.card_type_rarity) {
+                        card.card_type_rarity = card.rarity;
+                    }
+
+                    const listCard = listCards.list_cards.find((lc: any) => lc.card_id === card.id);
+                    if (listCard) {
+                        card.cardIdList = listCard.id;
+                    }
+
                     return card as CardData;
                 });
 
@@ -186,7 +213,13 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         onListQuantityChange?.();
     };
 
-    const handleAddCard = async (card: CardData) => {
+    const handleCollectionQuantityChange = async () => {
+        if (onCollectionQuantityChange) {
+            onCollectionQuantityChange();
+        }
+    };
+
+    const handleAddCard = async (card: CardData, cardType: string) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
             [card.id]: (prevQuantities[card.id] || 0) + 1
@@ -196,7 +229,8 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 const response = await axios.post('http://localhost:8000/api/add-card-to-list/', {
                     list_id: selectedListId,
                     card_id: card.id,
-                    card_type: 'pokemon'
+                    card_type: 'pokemon',
+                    card_type_value: cardType
                 });
 
                 if (response.status === 200) {
@@ -257,7 +291,9 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             const newCollectedStatus: { [key: string]: boolean } = {};
             const newCollectedQuantities: { [key: string]: number } = {};
 
+            const cardTypeMap: { [key: number]: string | null } = {};
             listCards.forEach((listCard: any) => {
+                const listCardId = listCard.id;
                 const cardId = listCard.card_id;
                 if (!cardId) return;
 
@@ -268,6 +304,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                     newCollectedQuantities[cardId]++;
                     newCollectedStatus[cardId] = true;
                 }
+                cardTypeMap[listCardId] = listCard.card_type;
             });
 
             setCollectedStatus(newCollectedStatus);
@@ -286,6 +323,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 operation: 'add',
             }).then(async () => {
                 await fetchCardListData();
+                await handleCollectionQuantityChange();
             }).catch(error => {
                 console.error("Error in handleIncrementCollectedQuantity: ", error);
             });
@@ -301,6 +339,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 operation: 'remove',
             }).then(async () => {
                 await fetchCardListData();
+                await handleCollectionQuantityChange();
             }).catch(error => {
                 console.error("Error in handleDecrementCollectedQuantity: ", error);
             });
@@ -330,6 +369,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 quantity: isChecked ? 1 : 0,
             });
             await fetchCardListData();
+            await handleCollectionQuantityChange();
         } catch (error) {
             setCollectedStatus(collectedStatus);
             setCollectedQuantities(collectedQuantities);
@@ -455,6 +495,90 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         fetchData(1);
     };
 
+    const handleCardTypeChange = async (listCardId: number, cardId: string, cardType: OptionType | null) => {
+        if (onCardTypeChange) {
+            onCardTypeChange(listCardId, cardId, cardType);
+            fetchData(currentPage, {
+                supertype: supertypeFilter,
+                subtype: subtypeFilter,
+                type: typeFilter,
+                rarity: rarityFilter,
+                set: setFilter
+            });
+        }
+    };
+
+    const renderCards = () => {
+        if (isCollectionView) {
+            const collectedCards = Object.entries(collectedQuantities)
+                .filter(([_, quantity]) => quantity > 0)
+                .flatMap(([cardId, quantity]) => {
+                    const card = cards.find((c) => c.id === cardId);
+                    if (card) {
+                        return Array(quantity).fill(card);
+                    }
+                    return [];
+                });
+
+            return collectedCards.map((card, index) => {
+                return (
+                    <CardDisplay
+                        key={`${card.id}-${index}`}
+                        card={card}
+                        onInfoClick={() => handleCardInfo(card)}
+                        onAddCard={(card, cardType) => handleAddCard(card, cardType)}
+                        onIncrementCard={() => incrementCardQuantity(card)}
+                        onDecrementCard={() => decrementCardQuantity(card)}
+                        onDeleteCard={() => handleDeleteCard(card)}
+                        handleIncrementCollectedQuantity={() => handleIncrementCollectedQuantity(card.id)}
+                        handleDecrementCollectedQuantity={() => handleDecrementCollectedQuantity(card.id)}
+                        isSelectedListId={!!selectedListId}
+                        isInAddMode={isInAddMode}
+                        collectedStatus={collectedStatus[card.id]}
+                        cardQuantities={cardQuantities}
+                        onCheckboxChange={handleCheckboxChange}
+                        image={card.images.large}
+                        name={card.name}
+                        id={card.id}
+                        collectedQuantities={collectedQuantities}
+                        cardTypes={filterOptions.rarities}
+                        isCollectionView={isCollectionView}
+                        onCardTypeChange={handleCardTypeChange}
+                        cardType={card.card_type_rarity || null}
+                        cardListId={card.cardIdList}
+                    />
+                );
+            });
+        }
+
+        return cards.map((card) => (
+            <CardDisplay
+                key={card.id}
+                card={card}
+                onInfoClick={() => handleCardInfo(card)}
+                onAddCard={(card, cardType) => handleAddCard(card, cardType)}
+                onIncrementCard={() => incrementCardQuantity(card)}
+                onDecrementCard={() => decrementCardQuantity(card)}
+                onDeleteCard={() => handleDeleteCard(card)}
+                handleIncrementCollectedQuantity={() => handleIncrementCollectedQuantity(card.id)}
+                handleDecrementCollectedQuantity={() => handleDecrementCollectedQuantity(card.id)}
+                isSelectedListId={!!selectedListId}
+                isInAddMode={isInAddMode}
+                collectedStatus={collectedStatus[card.id]}
+                cardQuantities={cardQuantities}
+                onCheckboxChange={handleCheckboxChange}
+                image={card.images.large}
+                name={card.name}
+                id={card.id}
+                collectedQuantities={collectedQuantities}
+                cardTypes={filterOptions.rarities}
+                isCollectionView={isCollectionView}
+                onCardTypeChange={onCardTypeChange}
+                cardListId={card.cardIdList}
+            />
+        ));
+    };
+
     const cardInfo = selectedCard && (
         <Dialog
             open={showData}
@@ -472,6 +596,8 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                     deleteCard={handleDeleteCard}
                     close={handleCloseDialog}
                     cardQuantity={cardQuantities[selectedCard.id]}
+                    allTypes={filterOptions.rarities}
+                    cardListId={selectedCard.cardIdList}
                 />
             </DialogContent>
             <DialogActions>
@@ -549,28 +675,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
             <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
             <Grid container spacing={2}>
-                {cards.map((card) => (
-                    <CardDisplay
-                        key={card.id}
-                        card={card}
-                        onInfoClick={() => handleCardInfo(card)}
-                        onAddCard={() => handleAddCard(card)}
-                        onIncrementCard={() => incrementCardQuantity(card)}
-                        onDecrementCard={() => decrementCardQuantity(card)}
-                        onDeleteCard={() => handleDeleteCard(card)}
-                        handleIncrementCollectedQuantity={() => handleIncrementCollectedQuantity(card.id)}
-                        handleDecrementCollectedQuantity={() => handleDecrementCollectedQuantity(card.id)}
-                        isSelectedListId={!!selectedListId}
-                        isInAddMode={isInAddMode}
-                        collectedStatus={collectedStatus[card.id]}
-                        cardQuantities={cardQuantities}
-                        onCheckboxChange={handleCheckboxChange}
-                        image={card.images.large}
-                        name={card.name}
-                        id={card.id}
-                        collectedQuantities={collectedQuantities}
-                    />
-                ))}
+                {renderCards()}
             </Grid>
             {cardInfo}
             <Pagination

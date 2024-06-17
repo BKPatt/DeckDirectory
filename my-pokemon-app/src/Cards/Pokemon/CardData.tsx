@@ -27,6 +27,8 @@ export type CardData = {
     };
     tcgplayer?: Tcgplayer;
     cardmarket?: Cardmarket;
+    card_type_rarity?: string;
+    cardIdList: number;
 };
 
 export type Attack = {

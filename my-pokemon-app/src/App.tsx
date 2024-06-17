@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ThemeProvider, Box } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import theme from './theme';
@@ -15,8 +15,19 @@ import BasketballCards from './Cards/BasketballCards';
 import HockeyCards from './Cards/HockeyCards';
 import Lists from './Lists';
 import { ListProvider } from './Types/CardList'
+import { OptionType } from './Types/Options';
 
 const App: React.FC = () => {
+    const [isCollectionView, setIsCollectionView] = useState(false);
+
+    const handleListQuantityChange = () => {
+        // Logic to handle list quantity change
+    };
+
+    const handleCollectionQuantityChange = () => {
+        // Logic to handle collection quantity change
+    };
+
     return (
         <ThemeProvider theme={theme}>
             <Router>
@@ -28,7 +39,16 @@ const App: React.FC = () => {
                                 <Routes>
                                     <Route path="/" element={<HomePage />} />
                                     <Route path="/cards" element={<CardTypesPage />} />
-                                    <Route path="/cards/pokemon" element={<PokemonCards />} />
+                                    <Route
+                                        path="/cards/pokemon"
+                                        element={
+                                            <PokemonCards
+                                                isCollectionView={isCollectionView}
+                                                onListQuantityChange={handleListQuantityChange}
+                                                onCollectionQuantityChange={handleCollectionQuantityChange}
+                                            />
+                                        }
+                                    />
                                     <Route path="/cards/mtg" element={<MTGCards />} />
                                     <Route path="/cards/yu-gi-oh!" element={<YugiohCards />} />
                                     <Route path="/cards/lorcana" element={<LorcanaCards />} />

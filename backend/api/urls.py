@@ -1,10 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (CardListViewSet, 
-                    add_card_to_list, 
+                    add_card_to_list, card_type_quantities, 
                     update_card_quantity, 
                     delete_card_from_list, 
-                    get_list_by_id, 
+                    get_list_by_id, update_card_type, update_card_type_quantity, 
                     update_list, 
                     card_collection, 
                     set_card_quantity)
@@ -47,4 +47,7 @@ urlpatterns = [
     path('lorcana-filter-options/', get_lorcana_filter_options, name='lorcana-filter-options'),
     path('card-collection/', card_collection, name='card-collection'),
     path('set-card-quantity/', set_card_quantity, name='set-card-quantity'),
+    path('update-card-type/', update_card_type, name='update-card-type'),
+    path('card-type-quantities/<int:list_id>/<str:card_list_id>/', card_type_quantities, name='card-type-quantities'),
+    path('update-card-type-quantity/<int:list_id>/<str:card_list_id>/', update_card_type_quantity, name='update-card-type-quantity'),
 ]

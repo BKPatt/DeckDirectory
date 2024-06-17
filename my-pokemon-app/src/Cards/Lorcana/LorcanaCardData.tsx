@@ -15,6 +15,7 @@ type LorcanaCardData = {
     Body_Text: string;
     Set_ID: string;
     card_count: number;
+    cardIdList: number;
 };
 
 export default LorcanaCardData;

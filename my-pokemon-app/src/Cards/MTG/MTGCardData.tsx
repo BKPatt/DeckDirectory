@@ -31,6 +31,7 @@ export type MTGCardData = {
     related_uris: Record<string, string>;
     card_faces?: CardFace[];
     all_parts?: RelatedCard[];
+    cardIdList: number;
 };
 
 export type RelatedCard = {

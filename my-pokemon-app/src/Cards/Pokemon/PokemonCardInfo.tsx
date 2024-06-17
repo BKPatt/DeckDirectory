@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Typography, Card, CardMedia, Tabs, Tab, Divider, Button } from '@mui/material';
 import { CardData } from './CardData';
 import colorlessEnergy from '../../assets/energies/colorlessEnergy.png';
 import darknessEnergy from '../../assets/energies/darknessEnergy.png';
@@ -12,6 +12,8 @@ import metalEnergy from '../../assets/energies/metalEnergy.png';
 import psychicEnergy from '../../assets/energies/psychicEnergy.png';
 import waterEnergy from '../../assets/energies/waterEnergy.png';
 import AddCard from '../../Components/AddCard';
+import { OptionType } from '../../Types/Options';
+import axios from 'axios';
 
 type CardInfoProps = {
     card: CardData;
@@ -21,6 +23,8 @@ type CardInfoProps = {
     deleteCard: (card: CardData) => void;
     close: () => void;
     cardQuantity: number;
+    allTypes: OptionType[],
+    cardListId: number;
 };
 
 type EnergyImages = {
@@ -34,9 +38,12 @@ const CardInfo: React.FC<CardInfoProps> = ({
     decrementCardQuantity,
     deleteCard,
     close,
-    cardQuantity
+    cardQuantity,
+    allTypes,
+    cardListId,
 }) => {
     const [selectedTab, setSelectedTab] = useState(0);
+    const [cardTypeQuantities, setCardTypeQuantities] = useState<{ [key: string]: number }>({});
     const isPokemonCard = card.supertype === "Pokémon";
 
     const energyImages: EnergyImages = {
@@ -51,6 +58,20 @@ const CardInfo: React.FC<CardInfoProps> = ({
         Psychic: psychicEnergy,
         Water: waterEnergy,
     };
+
+    useEffect(() => {
+        const fetchCardTypeQuantities = async () => {
+            try {
+                const response = await axios.get(`http://localhost:8000/api/card-type-quantities/${selectedCardListId}/${card.cardIdList}/`)
+
+                setCardTypeQuantities(response.data);
+            } catch (error) {
+                console.error('Error fetching card type quantities:', error);
+            }
+        };
+
+        fetchCardTypeQuantities();
+    }, [selectedCardListId, card.id]);
 
     const getEnergyImage = (energyType: string) => {
         const formattedEnergyType = energyType.charAt(0).toUpperCase() + energyType.slice(1).toLowerCase();
@@ -214,11 +235,87 @@ const CardInfo: React.FC<CardInfoProps> = ({
         );
     };
 
+    const handleCardTypeQuantityChange = async (cardType: string, operation: 'increment' | 'decrement') => {
+        const currentQuantity = cardTypeQuantities[cardType] || 0;
+        let newQuantity = currentQuantity;
+
+        if (operation === 'increment' && currentQuantity < cardQuantity) {
+            newQuantity = currentQuantity + 1;
+        } else if (operation === 'decrement' && currentQuantity > 0) {
+            newQuantity = currentQuantity - 1;
+        } else {
+            return;
+        }
+
+        try {
+            await axios.post(`http://localhost:8000/api/update-card-type-quantity/${selectedCardListId}/${card.cardIdList}/`, {
+                cardType: cardType,
+                operation: operation
+            });
+
+            setCardTypeQuantities(prevQuantities => ({
+                ...prevQuantities,
+                [cardType]: newQuantity
+            }));
+        } catch (error) {
+            console.error('Error updating card type quantities:', error);
+        }
+    };
+
+
+    const renderCardTypes = () => {
+        const cardTypes = Array.from(new Set(allTypes.map(type => type.toString())));
+        const totalQuantity = Object.values(cardTypeQuantities).reduce((sum, quantity) => sum + quantity, 0);
+
+        const isInvalidQuantity = totalQuantity !== cardQuantity;
+
+        return (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+                {cardTypes.map(cardType => (
+                    <Box key={cardType} sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" sx={{ marginRight: '10px', flex: 1 }}>{cardType}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Button
+                                onClick={() => handleCardTypeQuantityChange(cardType, 'decrement')}
+                                disabled={cardTypeQuantities[cardType] === 0}
+                                sx={{
+                                    minWidth: '30px',
+                                    backgroundColor: 'transparent',
+                                    color: 'primary.main',
+                                }}
+                            >
+                                -
+                            </Button>
+                            <Typography variant="body1" sx={{ marginX: '5px' }}>{cardTypeQuantities[cardType] || 0}</Typography>
+                            <Button
+                                onClick={() => handleCardTypeQuantityChange(cardType, 'increment')}
+                                disabled={totalQuantity === cardQuantity}
+                                sx={{
+                                    minWidth: '30px',
+                                    backgroundColor: 'transparent',
+                                    color: 'primary.main',
+                                }}
+                            >
+                                +
+                            </Button>
+                        </Box>
+                    </Box>
+                ))}
+                {isInvalidQuantity && (
+                    <Typography color="error" sx={{ gridColumn: '1 / -1' }}>
+                        The total quantity of card types must match the number of cards in the list.
+                    </Typography>
+                )}
+            </Box>
+        );
+    };
+
     const tabConfig = isPokemonCard
         ? [
             { label: "Details", content: renderDetails() },
             { label: "Attacks", content: renderAttacks() },
-            { label: "Prices", content: renderPrices() }
+            { label: "Prices", content: renderPrices() },
+            { label: "Card Types", content: renderCardTypes() }
         ]
         : [
             { label: "Details", content: renderDetails() },
@@ -260,6 +357,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
                         <Tab label="Details" />
                         <Tab label="Attacks" />
                         <Tab label="Prices" />
+                        <Tab label="Card Types" />
                     </Tabs>
                 ) : (
                     <Tabs

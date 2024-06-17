@@ -13,6 +13,7 @@ export type YugiohCardData = {
     card_sets: CardSet[];
     card_images: CardImage[];
     card_prices: CardPrice[];
+    cardIdList: number;
 };
 
 export type CardSet = {
