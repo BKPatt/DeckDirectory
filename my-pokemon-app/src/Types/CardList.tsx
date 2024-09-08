@@ -3,6 +3,7 @@ import Card from "./Card";
 import CardType from "./CardType";
 import axios from "axios";
 
+// Define the structure of a CardList
 export type CardList = {
     id: string;
     created_by: string;
@@ -15,6 +16,7 @@ export type CardList = {
     collected_quantities: { [key: string]: number };
 };
 
+// Define the shape of the context
 export interface ListContextType {
     listData: CardList[];
     updateListData: (newData: CardList[]) => void;
@@ -22,8 +24,10 @@ export interface ListContextType {
     fetchUpdatedListDetails: (listId: string | undefined) => Promise<void>;
 }
 
+// Create the context
 export const ListContext = createContext<ListContextType | undefined>(undefined);
 
+// Custom hook for managing list data and operations
 export const useList = () => {
     const [listData, setListData] = useState<CardList[]>([]);
 
@@ -53,6 +57,7 @@ export const useList = () => {
                     const updatedList = response.data.card_list as CardList;
                     const listCards = response.data.list_cards;
 
+                    // Calculate collection value
                     const collectionValue = listCards.reduce((total: number, listCard: { market_value: number; collected: boolean; }) => {
                         if (listCard.collected) {
                             return total + listCard.market_value;
@@ -60,6 +65,7 @@ export const useList = () => {
                         return total;
                     }, 0);
 
+                    // Calculate collected quantities
                     const newCollectedQuantities: { [key: string]: number } = {};
                     listCards.forEach((listCard: { card_id: string; collected: boolean; }) => {
                         const cardId = listCard.card_id;
@@ -68,6 +74,7 @@ export const useList = () => {
                         }
                     });
 
+                    // Update list data with new information
                     const newListData = listData.map((list) =>
                         list.id === listId ? { ...updatedList, collection_value: collectionValue, collected_quantities: newCollectedQuantities } : list
                     );
@@ -83,10 +90,12 @@ export const useList = () => {
     return { listData, updateListData, updateListInDatabase, fetchUpdatedListDetails };
 };
 
+// Props interface for the ListProvider component
 interface ListProviderProps {
     children: ReactNode;
 }
 
+// ListProvider component to wrap the application and provide the ListContext
 export const ListProvider: React.FC<ListProviderProps> = ({ children }) => {
     const contextValue = useList();
     return (

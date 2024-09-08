@@ -1,27 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-    TextField,
-    Button,
-    Select,
-    MenuItem,
-    Typography,
-    Box,
-    Grid,
-    SelectChangeEvent,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    DialogContentText,
-    TableHead,
-    TableRow,
-    Paper,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    TableCell,
-    TableBody,
-    TableContainer,
+    TextField, Button, Select, MenuItem, Typography, Box, Grid, SelectChangeEvent,
+    Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText,
+    TableHead, TableRow, Paper, Accordion, AccordionSummary, AccordionDetails,
+    TableCell, TableBody, TableContainer,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ListDialog from './Types/ListDialog';
@@ -40,6 +22,7 @@ import axios from 'axios';
 import Pagination from '@mui/material/Pagination';
 
 const Lists = () => {
+    // State management
     const { listData, updateListData } = useList();
     const [newListName, setNewListName] = useState<string>('');
     const [newListType, setNewListType] = useState<CardType>('Pokemon');
@@ -52,6 +35,8 @@ const Lists = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const clickableStyle = { cursor: 'pointer' };
     const cardTypes: CardType[] = ['Pokemon', 'MTG', 'Yu-Gi-Oh!', 'Lorcana', 'Baseball', 'Football', 'Basketball', 'Hockey'];
+
+    // Pagination state for each card type
     const [paginationState, setPaginationState] = useState<Record<CardType, { currentPage: number, totalPages: number }>>({
         'Pokemon': { currentPage: 1, totalPages: 0 },
         'MTG': { currentPage: 1, totalPages: 0 },
@@ -62,6 +47,8 @@ const Lists = () => {
         'Basketball': { currentPage: 1, totalPages: 0 },
         'Hockey': { currentPage: 1, totalPages: 0 },
     });
+
+    // State to store lists by card type
     const [listDataByType, setListDataByType] = useState<Record<CardType, CardList[]>>({
         'Pokemon': [],
         'MTG': [],
@@ -72,6 +59,8 @@ const Lists = () => {
         'Basketball': [],
         'Hockey': [],
     });
+
+    // Sortable fields and sort state for each card type
     type SortableFields = keyof Pick<CardList, 'name' | 'created_by' | 'created_on' | 'market_value'> | 'num_cards';
     const [sortStates, setSortStates] = useState<Record<CardType, { field: SortableFields, direction: 'asc' | 'desc' }>>({
         'Pokemon': { field: 'name', direction: 'asc' },
@@ -84,6 +73,7 @@ const Lists = () => {
         'Hockey': { field: 'name', direction: 'asc' },
     });
 
+    // Function to create a new list
     const createNewList = () => {
         if (!newListName.trim()) {
             alert('Please enter a name for the list.');
@@ -120,6 +110,7 @@ const Lists = () => {
             });
     };
 
+    // Function to fetch lists for a specific card type
     const fetchListsForType = (type: CardType, page = 1, sortField = 'created_on', sortDirection = 'asc') => {
         axios.get(`http://localhost:8000/api/cardlists/?type=${type}&page=${page}&sort_field=${sortField}&sort_direction=${sortDirection}`)
             .then(response => {
@@ -141,6 +132,7 @@ const Lists = () => {
             });
     };
 
+    // Function to fetch all lists
     const fetchAllLists = () => {
         cardTypes.forEach(type => {
             const currentPage = paginationState[type].currentPage;
@@ -152,6 +144,7 @@ const Lists = () => {
         fetchAllLists();
     }, [currentPage]);
 
+    // Event handlers
     const handleListNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setNewListName(e.target.value);
     }
@@ -234,6 +227,7 @@ const Lists = () => {
         setSelectedList(null);
     };
 
+    // Render functions
     const renderPagination = (type: CardType): JSX.Element => (
         <Pagination
             count={paginationState[type].totalPages}
@@ -368,6 +362,7 @@ const Lists = () => {
         );
     };
 
+    // Determine the content for the add cards dialog based on the selected list type
     let addCardsDialogContent;
     switch (selectedList?.type) {
         case 'Pokemon':
@@ -406,6 +401,7 @@ const Lists = () => {
             addCardsDialogContent = <div>Select a card type</div>;
     }
 
+    // Dialog for adding cards to a list
     const addCardsDialog = (
         <Dialog
             open={addCardsDialogOpen}
@@ -425,6 +421,7 @@ const Lists = () => {
         </Dialog>
     );
 
+    // Dialog for confirming list deletion
     const deleteConfirmationDialog = (
         <Dialog
             open={deleteDialogOpen}
@@ -449,6 +446,7 @@ const Lists = () => {
         </Dialog>
     );
 
+    // Main component render
     return (
         <Box sx={{ width: 'auto', padding: 3 }}>
             <Typography variant="h5" gutterBottom component="div">

@@ -15,8 +15,10 @@ def get_mtg_cards_by_list(request, list_id):
     set_filter = request.GET.get('set', None)
     sort_option = request.GET.get('sort', None)
 
+    # Query to get cards related to a specific list and count how many of each card is in the list
     list_cards_query = ListCard.objects.filter(card_list_id=list_id, mtg_card__isnull=False).values('mtg_card').annotate(card_count=Count('id'))
 
+    # Filter the cards based on user-provided search and filters
     query = Q(mtg_card__name__icontains=search_term)
     if type_filter:
         query &= Q(mtg_card__type_line__icontains=type_filter)
@@ -26,6 +28,7 @@ def get_mtg_cards_by_list(request, list_id):
         query &= Q(mtg_card__set_name__icontains=set_filter)
     list_cards_query = list_cards_query.filter(query)
 
+    # Sorting based on card name or price
     sort_by = '-card_count'
     if sort_option == 'name_asc':
         sort_by = 'mtg_card__name'
@@ -44,6 +47,7 @@ def get_mtg_cards_by_list(request, list_id):
     except EmptyPage:
         return Response({'error': 'Page not found'}, status=404)
 
+    # Serialize card data for response
     serialized_data = []
     for list_card in current_page:
         card_id = list_card['mtg_card']
@@ -87,6 +91,7 @@ def get_mtg_filter_options(request):
         rarities = MTGCardsData.objects.values('rarity').distinct()
         sets = MTGCardsData.objects.values('set_name').distinct()
 
+        # Process type lines to handle multiple types in one card's description
         processed_type_lines = set(item.split(' — ')[0] for item in type_lines if item)
 
         filter_options = {
@@ -109,6 +114,7 @@ def fetch_mtg_cards(request):
     set_filter = request.GET.get('set', None)
     sort_option = request.GET.get('sort', None)
 
+    # Build query to search cards by name or type
     query = Q(name__icontains=search_term) | Q(type_line__icontains=search_term)
     if type_filter:
         query &= Q(type_line__icontains=type_filter)
@@ -117,6 +123,7 @@ def fetch_mtg_cards(request):
     if set_filter:
         query &= Q(set_name__icontains=set_filter)
 
+    # Sorting options for cards
     sort_by = 'name'
     if sort_option == 'name_desc':
         sort_by = '-name'
@@ -134,6 +141,7 @@ def fetch_mtg_cards(request):
         except EmptyPage:
             return Response({'error': 'Page not found'}, status=404)
 
+        # Serialize the data for current page
         cards_data = []
         for card in current_page:
             card_data = {

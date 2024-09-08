@@ -23,6 +23,7 @@ import FilterFormControl from '../../Components/FilterFormControl';
 import CardDisplay from '../../Components/CardDisplay';
 
 const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
+    // State declarations
     const [cards, setCards] = useState<CardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -31,7 +32,8 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
     const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
-    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+    const [sortOption, setSortOption] = useState<SortOptionType>(null);
+    const sortOptions = [
         { label: 'Name Ascending', value: 'name_asc' },
         { label: 'Name Descending', value: 'name_desc' },
         { label: 'Price Ascending', value: 'price_asc' },
@@ -60,6 +62,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
     const [collectedStatus, setCollectedStatus] = useState<{ [key: string]: boolean }>({});
     const [collectedQuantities, setCollectedQuantities] = useState<{ [key: string]: number }>({});
 
+    // Transform TCGPlayer data to match the expected format
     const transformTcgplayerData = (backendData: any): Tcgplayer => {
         const prices = backendData.prices || {};
 
@@ -97,6 +100,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         };
     };
 
+    // Fetch card data from the API
     const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
@@ -110,6 +114,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                     ...filters
                 }
             };
+            // Determine the correct API endpoint based on the mode
             let url = isInAddMode == null ? `http://localhost:8000/api/pokemon-cards/`
                 : !isInAddMode ? `http://localhost:8000/api/cards-by-list/${selectedListId}/`
                     : `http://localhost:8000/api/pokemon-cards/`;
@@ -118,6 +123,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             if (response.data && Array.isArray(response.data.data)) {
                 let fetchedCards: CardData[] = response.data.data;
 
+                // Transform TCGPlayer data for each card
                 fetchedCards.map((card: CardData) => {
                     if (card.tcgplayer) {
                         card.tcgplayer = transformTcgplayerData(card.tcgplayer);
@@ -125,6 +131,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                     return card as CardData;
                 });
 
+                // Deduplicate cards and sum their counts
                 const uniqueCardsMap = new Map<string, CardData>();
                 fetchedCards.forEach(card => {
                     if (!uniqueCardsMap.has(card.id)) {
@@ -146,6 +153,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 setCards(uniqueCards);
                 setTotalPages(response.data.total_pages);
 
+                // Fetch quantities for cards in add mode
                 if (isInAddMode) {
                     const quantitiesUrl = `http://localhost:8000/api/cards-by-list/${selectedListId}/`;
                     const quantitiesResponse = await axios.get(quantitiesUrl);
@@ -164,11 +172,13 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     };
 
+    // Initial data fetch and list update
     useEffect(() => {
         fetchData();
         handleListUpdate();
     }, [selectedListId]);
 
+    // Fetch filter options
     useEffect(() => {
         const fetchFilterOptions = async () => {
             try {
@@ -182,10 +192,12 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         fetchFilterOptions();
     }, []);
 
+    // Handle card quantity changes
     const handleCardQuantityChange = async () => {
         onListQuantityChange?.();
     };
 
+    // Add a card to the selected list
     const handleAddCard = async (card: CardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
@@ -208,6 +220,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     };
 
+    // Update the list data
     const handleListUpdate = async () => {
         await fetchCardListData();
         const updatedList = await fetchListData();
@@ -224,6 +237,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     };
 
+    // Fetch list data for a specific list
     const fetchListData = async (): Promise<CardList | null> => {
         if (!selectedListId) return null;
         const getListByIdUrl = `http://localhost:8000/api/get-list-by-id/${selectedListId}/`;
@@ -236,6 +250,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     }
 
+    // Fetch card list data and update collected status
     const fetchCardListData = async (): Promise<void> => {
         if (!selectedListId) return;
 
@@ -261,67 +276,83 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 const cardId = listCard.card_id;
                 if (!cardId) return;
 
-                if (!newCollectedQuantities[cardId]) {
-                    newCollectedQuantities[cardId] = 0;
-                }
-                if (listCard.collected) {
-                    newCollectedQuantities[cardId]++;
-                    newCollectedStatus[cardId] = true;
-                }
+                if (!newCollectedQuantities[cardId]) newCollectedQuantities[cardId] = 0;
+                if (listCard.collected) newCollectedQuantities[cardId]++;
+
+                newCollectedStatus[cardId] = newCollectedQuantities[cardId] > 0;
             });
 
             setCollectedStatus(newCollectedStatus);
             setCollectedQuantities(newCollectedQuantities);
+
         } catch (error) {
             console.error(`Error fetching updated list data:`, error);
         }
     };
 
+    // Increment the collected quantity of a card
     const handleIncrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] < cardQuantities[cardId]) {
+            const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
+            setCollectedQuantities(newQuantities);
+
+            if (newQuantities[cardId] === 1) {
+                setCollectedStatus((prevStatus) => ({ ...prevStatus, [cardId]: true }));
+            }
+
             await axios.post('http://localhost:8000/api/card-collection/', {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'pokemon',
                 operation: 'add',
-            }).then(async () => {
-                await fetchCardListData();
             }).catch(error => {
+                setCollectedQuantities(collectedQuantities);
                 console.error("Error in handleIncrementCollectedQuantity: ", error);
             });
         }
     };
 
+    // Decrement the collected quantity of a card
     const handleDecrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] > 0) {
+            const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] - 1 };
+            setCollectedQuantities(newQuantities);
+
+            if (newQuantities[cardId] === 0) {
+                setCollectedStatus((prevStatus) => ({ ...prevStatus, [cardId]: false }));
+            }
+
             await axios.post('http://localhost:8000/api/card-collection/', {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'pokemon',
                 operation: 'remove',
-            }).then(async () => {
-                await fetchCardListData();
             }).catch(error => {
+                setCollectedQuantities(collectedQuantities);
                 console.error("Error in handleDecrementCollectedQuantity: ", error);
             });
         }
     };
 
+    // Handle checkbox change for card collection status
     const handleCheckboxChange = async (cardId: string, isChecked: boolean) => {
-        const newCollectedStatus = { ...collectedStatus, [cardId]: isChecked };
-        setCollectedStatus(newCollectedStatus);
-
-        const newCollectedQuantities = { ...collectedQuantities };
-
-        if (isChecked) {
-            newCollectedQuantities[cardId] = 1;
-        } else {
-            newCollectedQuantities[cardId] = 0;
-        }
-
-        setCollectedQuantities(newCollectedQuantities);
-
         try {
+            const response = await axios.get(`http://localhost:8000/api/card-collected-status/?list_id=${selectedListId}&card_id=${cardId}&card_type=pokemon`);
+            const isCollectedInBackend = response.data.collected;
+
+            if (isCollectedInBackend === isChecked) {
+                return;
+            }
+
+            setCollectedStatus((prevState) => ({
+                ...prevState,
+                [cardId]: isCollectedInBackend,
+            }));
+            setCollectedQuantities((prevQuantities) => ({
+                ...prevQuantities,
+                [cardId]: isCollectedInBackend ? 1 : 0,
+            }));
+
             await axios.post('http://localhost:8000/api/set-card-quantity/', {
                 list_id: selectedListId,
                 card_id: cardId,
@@ -331,12 +362,11 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             });
             await fetchCardListData();
         } catch (error) {
-            setCollectedStatus(collectedStatus);
-            setCollectedQuantities(collectedQuantities);
-            console.error("Error in handleCheckboxChange: ", error);
+            console.error('Error in handleCheckboxChange:', error);
         }
     };
 
+    // Update card quantity in the backend
     const updateCardQuantity = async (cardId: string, operation: 'increment' | 'decrement') => {
         const url = `http://localhost:8000/api/update-card-quantity/`;
 
@@ -353,6 +383,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     };
 
+    // Increment card quantity
     const incrementCardQuantity = async (card: CardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
@@ -366,6 +397,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         await handleCardQuantityChange();
     };
 
+    // Decrement card quantity
     const decrementCardQuantity = async (card: CardData) => {
         if (cardQuantities[card.id] > 1) {
             setCardQuantities(prevQuantities => ({
@@ -385,6 +417,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     };
 
+    // Handle card deletion
     const handleDeleteCard = async (card: CardData) => {
         await deleteCardFromList(card.id);
         await fetchData(currentPage);
@@ -392,6 +425,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         await handleCardQuantityChange();
     };
 
+    // Delete a card from the list
     const deleteCardFromList = async (cardId: string) => {
         const url = `http://localhost:8000/api/delete-card-from-list/`;
         try {
@@ -412,6 +446,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         }
     };
 
+    // Handle search button click
     const handleSearchClick = () => {
         setCurrentPage(1);
         fetchData(1, {
@@ -423,6 +458,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         });
     };
 
+    // Handle pagination
     const paginate = (value: number) => {
         fetchData(value, {
             supertype: supertypeFilter,
@@ -433,16 +469,19 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         });
     };
 
+    // Handle card info display
     const handleCardInfo = (card: CardData) => {
         setSelectedCard(card);
         setShowData(true);
     };
 
+    // Handle closing of card info dialog
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
     };
 
+    // Clear all filters
     const handleClearFilters = () => {
         setSearch('');
         setSupertypeFilter(null);
@@ -455,6 +494,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         fetchData(1);
     };
 
+    // Render card info dialog
     const cardInfo = selectedCard && (
         <Dialog
             open={showData}
@@ -482,8 +522,10 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
         </Dialog>
     );
 
+    // Render the component
     return (
         <Box sx={{ p: 2 }}>
+            {/* Search input */}
             <TextField
                 fullWidth
                 label="Search Pokémon Cards"
@@ -499,6 +541,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 }}
                 sx={{ mb: { xs: 2, lg: 2 }, margin: '5px' }}
             />
+            {/* Filter controls */}
             <FilterFormControl
                 id="supertype-filter"
                 label="Supertype"
@@ -534,6 +577,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 selectedFilter={setFilter}
                 setSelectedFilter={setSetFilter}
             />
+            {/* Sort control */}
             <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
                 <Autocomplete
                     id="combo-box-sort"
@@ -546,8 +590,10 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                     renderInput={(params) => <TextField {...params} label="Sort By" />}
                 />
             </FormControl>
+            {/* Search and Clear Filters buttons */}
             <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
             <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
+            {/* Card grid */}
             <Grid container spacing={2}>
                 {cards.map((card) => (
                     <CardDisplay
@@ -572,7 +618,9 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                     />
                 ))}
             </Grid>
+            {/* Card info dialog */}
             {cardInfo}
+            {/* Pagination */}
             <Pagination
                 count={totalPages}
                 page={currentPage}
@@ -583,4 +631,4 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
     );
 };
 
-export default PokemonCards;    
+export default PokemonCards;

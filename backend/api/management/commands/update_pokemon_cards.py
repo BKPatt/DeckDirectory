@@ -25,7 +25,6 @@ def convert_date_format(date_str, is_datetime=False):
                 )
                 return aware_datetime.strftime('%Y-%m-%d %H:%M:%S')
             else:
-                # Assuming date-only fields are not required to be timezone-aware
                 return datetime.datetime.strptime(date_str, '%Y/%m/%d').strftime('%Y-%m-%d')
         except ValueError:
             return None

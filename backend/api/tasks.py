@@ -6,12 +6,14 @@ def calculate_average_price(prices):
     if not prices:
         return Decimal('0.00')
 
+    # Sort prices and calculate Q1, Q3, and IQR to filter outliers
     prices = sorted(Decimal(str(price)) for price in prices if price)
     mid_index = len(prices) // 2
     Q1 = prices[mid_index // 2] if len(prices) % 2 else (prices[mid_index // 2 - 1] + prices[mid_index // 2]) / 2
     Q3 = prices[-(mid_index // 2) - 1] if len(prices) % 2 else (prices[-(mid_index // 2) - 1] + prices[-(mid_index // 2)]) / 2
     IQR = Q3 - Q1
 
+    # Filter prices based on IQR range
     lower_bound = Q1 - (Decimal('1.5') * IQR)
     upper_bound = Q3 + (Decimal('1.5') * IQR)
     filtered_prices = [price for price in prices if lower_bound <= price <= upper_bound]
@@ -26,7 +28,6 @@ def calculate_average_price(prices):
 def get_card_market_price(card, card_type):
     """
     Calculate the market price of a card based on its type.
-    This function should be adjusted based on your model fields and logic.
     """
     if card_type == 'pokemon':
         price_values = []
@@ -64,7 +65,6 @@ def get_card_market_price(card, card_type):
 def get_card_type_and_instance(list_card):
     """
     Determine the card's type and retrieve its instance from a ListCard object.
-    Adjust the attribute names based on your actual model fields.
     """
     if list_card.pokemon_card:
         return 'pokemon', list_card.pokemon_card
@@ -107,7 +107,7 @@ def bulk_update_collection_values():
         for list_card in collected_cards:
             card_type, card_instance = get_card_type_and_instance(list_card)
             if card_instance:
-                card_price = get_card_market_price(card_instance, card_type, collected=True)
+                card_price = get_card_market_price(card_instance, card_type)
                 new_collection_value += card_price
         
         card_list.collection_value = new_collection_value

@@ -11,6 +11,7 @@ import CardDisplay from '../../Components/CardDisplay';
 import FilterFormControl from '../../Components/FilterFormControl';
 
 const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
+    // State declarations
     const [cards, setCards] = useState<MTGCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -19,7 +20,8 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
     const [selectedCard, setSelectedCard] = useState<MTGCardData | null>(null);
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
-    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+    const [sortOption, setSortOption] = useState<SortOptionType>(null);
+    const sortOptions = [
         { label: 'Name Ascending', value: 'name_asc' },
         { label: 'Name Descending', value: 'name_desc' },
         { label: 'Price Ascending', value: 'price_asc' },
@@ -41,6 +43,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
     const [collectedStatus, setCollectedStatus] = useState<{ [key: string]: boolean }>({});
     const [collectedQuantities, setCollectedQuantities] = useState<{ [key: string]: number }>({});
 
+    // Function to fetch card data from the API
     const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
@@ -54,9 +57,12 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                     ...filters
                 }
             };
+
+            // Determine the appropriate API endpoint based on the mode
             let url = isInAddMode == null ? `http://localhost:8000/api/mtg-cards/`
                 : !isInAddMode ? `http://localhost:8000/api/mtg-cards-by-list/${selectedListId}/`
                     : `http://localhost:8000/api/mtg-cards/`;
+
             const response = await axios.get(url, params);
 
             if (response.data && Array.isArray(response.data.data)) {
@@ -70,6 +76,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 setCards(fetchedCards);
                 setTotalPages(response.data.total_pages);
 
+                // If in add mode, fetch quantities for existing cards in the list
                 if (isInAddMode) {
                     const quantitiesUrl = `http://localhost:8000/api/mtg-cards-by-list/${selectedListId}/`;
                     const quantitiesResponse = await axios.get(quantitiesUrl);
@@ -88,11 +95,13 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Initial data fetch and list update
     useEffect(() => {
         fetchData();
         handleListUpdate();
     }, [selectedListId]);
 
+    // Fetch filter options on component mount
     useEffect(() => {
         const fetchFilterOptions = async () => {
             try {
@@ -106,10 +115,12 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         fetchFilterOptions();
     }, []);
 
+    // Handler for card quantity changes
     const handleCardQuantityChange = async () => {
         onListQuantityChange?.();
     };
 
+    // Function to update the list data
     const handleListUpdate = async () => {
         await fetchCardListData();
         const updatedList = await fetchListData();
@@ -126,6 +137,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Function to fetch list data by ID
     const fetchListData = async (): Promise<CardList | null> => {
         if (!selectedListId) return null;
         const getListByIdUrl = `http://localhost:8000/api/get-list-by-id/${selectedListId}/`;
@@ -138,6 +150,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     }
 
+    // Function to update card quantity on the server
     const updateCardQuantity = async (cardId: string, operation: 'increment' | 'decrement') => {
         const url = `http://localhost:8000/api/update-card-quantity/`;
 
@@ -154,6 +167,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Function to increment card quantity
     const incrementCardQuantity = async (card: MTGCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
@@ -164,18 +178,25 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         await handleCardQuantityChange();
     };
 
+    // Function to decrement card quantity
     const decrementCardQuantity = async (card: MTGCardData) => {
-        setCardQuantities(prevQuantities => {
-            if (prevQuantities[card.id] > 1) {
-                updateCardQuantity(card.id, 'decrement');
-                return { ...prevQuantities, [card.id]: prevQuantities[card.id] - 1 };
+        if (cardQuantities[card.id] > 1) {
+            setCardQuantities(prevQuantities => ({
+                ...prevQuantities,
+                [card.id]: prevQuantities[card.id] - 1,
+            }));
+
+            if (collectedQuantities[card.id] === cardQuantities[card.id]) {
+                handleDecrementCollectedQuantity(card.id);
             }
-            return prevQuantities;
-        });
-        handleListUpdate();
-        await handleCardQuantityChange();
+
+            await updateCardQuantity(card.id, 'decrement');
+            await handleListUpdate();
+            await handleCardQuantityChange();
+        }
     };
 
+    // Function to delete a card from the list
     const handleDeleteCard = async (card: MTGCardData) => {
         deleteCardFromList(card.id).then(() => {
             fetchData(currentPage);
@@ -184,6 +205,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         await handleCardQuantityChange();
     };
 
+    // Function to fetch card list data and update collected status
     const fetchCardListData = async (): Promise<void> => {
         if (!selectedListId) return;
 
@@ -206,7 +228,8 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
             const newCollectedQuantities: { [key: string]: number } = {};
 
             listCards.forEach((listCard: any) => {
-                const cardId = listCard.mtg_card;
+                const cardId = listCard.card_id;
+                console.log(cardId)
                 if (!cardId) return;
 
                 if (!newCollectedQuantities[cardId]) newCollectedQuantities[cardId] = 0;
@@ -223,13 +246,14 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Function to increment collected quantity of a card
     const handleIncrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] < cardQuantities[cardId]) {
             const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
             setCollectedQuantities(newQuantities);
 
             if (newQuantities[cardId] === 1) {
-                handleCheckboxChange(cardId, true)
+                handleCheckboxChange(cardId, true);
             }
 
             await axios.post('http://localhost:8000/api/card-collection/', {
@@ -237,22 +261,23 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 card_id: cardId,
                 card_type: 'mtg',
                 operation: 'add',
-            }).then(async response => {
-
+            }).then(async () => {
+                await fetchCardListData();
             }).catch(error => {
                 setCollectedQuantities(collectedQuantities);
-                console.error("Error in handleIncrementCollectedQuantity: ", error)
+                console.error("Error in handleIncrementCollectedQuantity: ", error);
             });
         }
     };
 
+    // Function to decrement collected quantity of a card
     const handleDecrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] > 0) {
             const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] - 1 };
             setCollectedQuantities(newQuantities);
 
             if (newQuantities[cardId] === 0) {
-                handleCheckboxChange(cardId, false)
+                handleCheckboxChange(cardId, false);
             }
 
             await axios.post('http://localhost:8000/api/card-collection/', {
@@ -260,15 +285,16 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 card_id: cardId,
                 card_type: 'mtg',
                 operation: 'remove',
-            }).then(async response => {
-
+            }).then(async () => {
+                await fetchCardListData();
             }).catch(error => {
                 setCollectedQuantities(collectedQuantities);
-                console.error("Error in handleDecrementCollectedQuantity: ", error)
+                console.error("Error in handleDecrementCollectedQuantity: ", error);
             });
         }
     };
 
+    // Function to handle checkbox change for collected status
     const handleCheckboxChange = async (cardId: string, isChecked: boolean) => {
         const newCollectedStatus = { ...collectedStatus, [cardId]: isChecked };
         setCollectedStatus(newCollectedStatus);
@@ -279,9 +305,10 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 card_id: cardId,
                 card_type: 'mtg',
                 operation: 'add',
-            }).then(async response => {
+            }).then(async () => {
                 const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
                 setCollectedQuantities(newQuantities);
+                await fetchCardListData();
             }).catch(error => {
                 setCollectedStatus(collectedStatus);
                 console.error("Error in handleCheckboxChange: ", error)
@@ -292,9 +319,10 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 card_id: cardId,
                 card_type: 'mtg',
                 collected: false,
-            }).then(async response => {
-                const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] - collectedQuantities[cardId] };
+            }).then(async () => {
+                const newQuantities = { ...collectedQuantities, [cardId]: 0 };
                 setCollectedQuantities(newQuantities);
+                await fetchCardListData();
             }).catch(error => {
                 setCollectedStatus(collectedStatus);
                 console.error("Error in handleCheckboxChange: ", error)
@@ -302,6 +330,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Function to delete a card from the list on the server
     const deleteCardFromList = async (cardId: string) => {
         const url = `http://localhost:8000/api/delete-card-from-list/`;
         try {
@@ -322,6 +351,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Function to add a card to the list
     const handleAddCard = async (card: MTGCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
@@ -344,6 +374,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
+    // Function to handle search button click
     const handleSearchClick = () => {
         setCurrentPage(1);
         fetchData(1, {
@@ -353,6 +384,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         });
     };
 
+    // Function to handle pagination
     const paginate = (value: number) => {
         fetchData(value, {
             type_line: typeFilter,
@@ -361,6 +393,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         });
     };
 
+    // Function to clear all filters and reset search
     const handleClearFilters = () => {
         setSearch('');
         setTypeFilter(null);
@@ -371,16 +404,19 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         fetchData(1)
     };
 
+    // Function to show detailed card information
     const handleCardInfo = (card: MTGCardData) => {
         setSelectedCard(card);
         setShowData(true);
     };
 
+    // Function to close the card information dialog
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
     };
 
+    // Component for displaying detailed card information
     const cardInfo = selectedCard && (
         <Dialog
             open={showData}
@@ -410,6 +446,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
 
     return (
         <Box sx={{ p: 2 }}>
+            {/* Search input field */}
             <TextField
                 fullWidth
                 label="Search MTG Cards"
@@ -425,6 +462,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 }}
                 sx={{ mb: 2 }}
             />
+            {/* Filter controls */}
             <FilterFormControl
                 id="type-filter"
                 label="Type"
@@ -446,6 +484,7 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 selectedFilter={setFilter}
                 setSelectedFilter={setSetFilter}
             />
+            {/* Sort options */}
             <FormControl sx={{ minWidth: { xs: '100%', sm: '160px' }, margin: '5px', mb: 2 }}>
                 <Autocomplete
                     id="combo-box-sort"
@@ -458,8 +497,10 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                     renderInput={(params) => <TextField {...params} label="Sort By" />}
                 />
             </FormControl>
+            {/* Search and Clear Filters buttons */}
             <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
             <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
+            {/* Grid to display cards */}
             <Grid container spacing={2}>
                 {cards.map((card) => (
                     <CardDisplay
@@ -484,7 +525,9 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                     />
                 ))}
             </Grid>
+            {/* Card info dialog */}
             {cardInfo}
+            {/* Pagination component */}
             <Pagination
                 count={totalPages}
                 page={currentPage}
