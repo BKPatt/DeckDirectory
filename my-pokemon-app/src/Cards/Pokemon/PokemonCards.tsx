@@ -303,7 +303,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             await axios.post('http://localhost:8000/api/card-collection/', {
                 list_id: selectedListId,
                 card_id: cardId,
-                card_type: 'mtg',
+                card_type: 'pokemon',
                 operation: 'add',
             }).catch(error => {
                 setCollectedQuantities(collectedQuantities);
@@ -325,7 +325,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             await axios.post('http://localhost:8000/api/card-collection/', {
                 list_id: selectedListId,
                 card_id: cardId,
-                card_type: 'mtg',
+                card_type: 'pokemon',
                 operation: 'remove',
             }).catch(error => {
                 setCollectedQuantities(collectedQuantities);
@@ -337,7 +337,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
     // Handle checkbox change for card collection status
     const handleCheckboxChange = async (cardId: string, isChecked: boolean) => {
         try {
-            const response = await axios.get(`http://localhost:8000/api/card-collected-status/?list_id=${selectedListId}&card_id=${cardId}&card_type=mtg`);
+            const response = await axios.get(`http://localhost:8000/api/card-collected-status/?list_id=${selectedListId}&card_id=${cardId}&card_type=pokemon`);
             const isCollectedInBackend = response.data.collected;
 
             if (isCollectedInBackend === isChecked) {
@@ -356,7 +356,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
             await axios.post('http://localhost:8000/api/set-card-quantity/', {
                 list_id: selectedListId,
                 card_id: cardId,
-                card_type: 'mtg',
+                card_type: 'pokemon',
                 collected: isChecked,
                 quantity: isChecked ? 1 : 0,
             });
