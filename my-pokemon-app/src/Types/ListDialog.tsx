@@ -38,6 +38,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [editedTitle, setEditedTitle] = useState('');
     const { updateListInDatabase } = useList();
 
+    // Initialize the dialog with the provided list
     useEffect(() => {
         if (list) {
             setCurrentList(list);
@@ -46,6 +47,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
         }
     }, [list]);
 
+    // Fetch updated list details from the server
     const fetchUpdatedList = async (): Promise<void> => {
         if (currentList) {
             try {
@@ -54,6 +56,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
                     const updatedList = response.data.card_list;
                     const listCards = response.data.list_cards;
 
+                    // Calculate the collection value based on collected cards
                     const collectionValue = listCards.reduce((total, listCard) => {
                         if (listCard.collected) {
                             return total + listCard.market_value;
@@ -73,6 +76,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
         setEditedTitle(event.target.value);
     };
 
+    // Handle 'Enter' key press when editing the title
     const handleKeyDown = async (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -85,6 +89,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
         }
     };
 
+    // Render the appropriate card component based on the list type
     const renderCardContent = (listType: CardType) => {
         switch (listType) {
             case 'Pokemon':

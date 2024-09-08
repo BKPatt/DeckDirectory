@@ -16,6 +16,7 @@ def get_lorcana_cards_by_list(request, list_id):
     set_name = request.GET.get('set_name', None)
     sort_option = request.GET.get('sort', None)
 
+    # Build the query based on filters
     query = Q()
     if search_term:
         query &= Q(lorcana_card__name__icontains=search_term)
@@ -26,8 +27,12 @@ def get_lorcana_cards_by_list(request, list_id):
     if set_name:
         query &= Q(lorcana_card__set_name__icontains=set_name)
 
-    list_cards_query = ListCard.objects.filter(card_list_id=list_id, lorcana_card__isnull=False).filter(query).values('lorcana_card').annotate(card_count=Count('id'))
+    # Filter and annotate the list with card count
+    list_cards_query = ListCard.objects.filter(
+        card_list_id=list_id, lorcana_card__isnull=False
+    ).filter(query).values('lorcana_card').annotate(card_count=Count('id'))
 
+    # Sorting options for list cards
     sort_options = {
         'name_asc': 'lorcana_card__name',
         'name_desc': '-lorcana_card__name',
@@ -44,6 +49,7 @@ def get_lorcana_cards_by_list(request, list_id):
     except EmptyPage:
         return Response({'error': 'Page not found'}, status=404)
 
+    # Serialize card data for response
     serialized_data = []
     for list_card in current_page:
         card = LorcanaCardData.objects.get(pk=list_card['lorcana_card'])
@@ -83,6 +89,7 @@ def fetch_lorcana_cards(request):
         set_name = request.GET.get('set_name', None)
         sort_option = request.GET.get('sort', None)
 
+        # Build the query based on search filters
         query = Q()
         if search_term:
             query &= Q(name__icontains=search_term)
@@ -93,6 +100,7 @@ def fetch_lorcana_cards(request):
         if set_name:
             query &= Q(set_name__icontains=set_name)
 
+        # Sorting logic
         if sort_option == 'name_desc':
             sort_by = '-name'
         elif sort_option == 'price_asc':
@@ -110,6 +118,7 @@ def fetch_lorcana_cards(request):
         except EmptyPage:
             return JsonResponse({'error': 'Page not found'}, status=404)
 
+        # Serialize the card data for response
         serialized_cards = [
             {
                 'id': card.id,
@@ -144,16 +153,19 @@ def fetch_lorcana_cards(request):
 @api_view(['GET'])
 def get_lorcana_filter_options(request):
     try:
+        # Correct known spelling mistakes in set names
         spelling_corrections = {
             'rise of ther floodborn': 'Rise of the Floodborn',
         }
 
+        # Gather distinct filter options
         color = LorcanaCardData.objects.values('color').distinct()
         rarity = LorcanaCardData.objects.values('rarity').distinct()
         set_name = LorcanaCardData.objects.annotate(
             set_name_lower=Lower('set_name')
         ).values_list('set_name_lower', flat=True).distinct()
 
+        # Apply corrections to set names
         corrected_set_names = set()
         for name in set_name:
             corrected_name = spelling_corrections.get(name.lower(), name)

@@ -9,9 +9,9 @@ type EbayItem = {
     postalCode: string;
     location: string;
     country: string;
-    shippingInfo: any; // Consider defining a more specific type
-    sellingStatus: any; // Consider defining a more specific type
-    listingInfo: any; // Consider defining a more specific type
+    shippingInfo: any; // TODO: Consider defining a more specific type
+    sellingStatus: any; // TODO: Consider defining a more specific type
+    listingInfo: any; // TODO: Consider defining a more specific type
     returnsAccepted: string;
     condition: { conditionId: string, conditionDisplayName: string };
     isMultiVariationListing: string;

@@ -42,8 +42,8 @@ def fetch_yugioh_cards(request):
 
         sort_by = sort_options.get(sort_option, 'name')
 
+        # Handle sorting by multiple price fields
         if sort_option and 'price' in sort_option:
-            additional_price_fields = ['card_prices__ebay_price', 'card_prices__amazon_price']            
             additional_price_fields = ['card_prices__ebay_price', 'card_prices__amazon_price']
             if sort_option.startswith('price_desc'):
                 additional_price_fields = ['-' + field for field in additional_price_fields]

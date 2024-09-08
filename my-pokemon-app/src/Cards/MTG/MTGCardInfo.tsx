@@ -23,12 +23,15 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
     close,
     cardQuantity
 }) => {
+    // Track the currently selected tab (Details, Legalities, Games, Prices)
     const [selectedTab, setSelectedTab] = useState(0);
 
+    // Handle tab selection change
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setSelectedTab(newValue);
     };
 
+    // Function to render a property with a label and value (e.g., 'Artist', 'John Doe')
     const renderProperty = (label: string, value: string | JSX.Element) => (
         <Box sx={{ textAlign: 'center' }}>
             <Typography variant="caption" color="textSecondary" sx={{ display: 'block', marginBottom: '5px' }}>
@@ -38,12 +41,14 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
         </Box>
     );
 
+    // Render legalities (like card format and whether it's legal in those formats)
     const renderLegalities = (legalities: { [key: string]: string }) => {
         return Object.entries(legalities).map(([format, legality]) =>
             renderProperty(format.charAt(0).toUpperCase() + format.slice(1), legality.charAt(0).toUpperCase() + legality.slice(1))
         );
     };
 
+    // Render the games where the card is playable (MTG Arena, MTGO, Paper)
     const renderGames = (games: string[]) => {
         const gameNames: { [key: string]: string } = {
             'arena': 'Magic: The Gathering Arena',
@@ -56,6 +61,7 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
         );
     };
 
+    // Render the card prices across different currencies/formats (USD, EUR, Foils, etc.)
     const renderPrices = (prices: any) => {
         const priceLabels: { [key: string]: string } = {
             'eur': 'EUR',
@@ -74,6 +80,7 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
 
     return (
         <Card sx={{ display: 'flex', m: 2, boxShadow: 3, borderRadius: 2, height: '100%' }}>
+            {/* Left side: Display the card image */}
             <Box sx={{ flexShrink: 0, width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <CardMedia
                     component="img"
@@ -81,6 +88,7 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
                     image={card.image_uris?.large || Default}
                     alt={card.name}
                 />
+                {/* Add card component to handle card quantity and deletion */}
                 <AddCard
                     selectedCardListId={selectedCardListId}
                     cardQuantity={cardQuantity}
@@ -91,10 +99,14 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
                     card={card}
                 />
             </Box>
+
+            {/* Right side: Card details and tabs */}
             <Box sx={{ p: 2, flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                 <Typography gutterBottom variant="h5" component="div">
                     {card.name}
                 </Typography>
+
+                {/* Tabs for switching between card details, legalities, games, and prices */}
                 <Tabs
                     value={selectedTab}
                     onChange={handleTabChange}
@@ -110,12 +122,13 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
 
                 <Divider sx={{ my: 2 }} />
 
+                {/* Tab content */}
                 {selectedTab === 0 && (
                     <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
                         {card.cmc && renderProperty('Mana Cost', card.cmc.toString())}
                         {card.type_line && renderProperty('Type', card.type_line)}
                         {card.lang && renderProperty('Language', card.lang)}
-                        {card.released_at && renderProperty('Realeased', card.released_at)}
+                        {card.released_at && renderProperty('Released', card.released_at)}
                         {card.set_name && renderProperty('Set', card.set_name)}
                         {card.set_type && renderProperty('Set Type', card.set_type)}
                         {card.artist && renderProperty('Artist', card.artist)}
@@ -123,18 +136,21 @@ const MTGCardInfo: React.FC<CardInfoProps> = ({
                     </Box>
                 )}
 
+                {/* Legalities tab */}
                 {selectedTab === 1 && (
                     <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
                         {card.legalities && renderLegalities(card.legalities)}
                     </Box>
                 )}
 
+                {/* Games tab */}
                 {selectedTab === 2 && (
                     <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
                         {card.games && renderGames(card.games as any[])}
                     </Box>
                 )}
 
+                {/* Prices tab */}
                 {selectedTab === 3 && (
                     <Box border={'1px solid #eee'} padding={'10px'} sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 2 }}>
                         {card.prices && renderPrices(card.prices)}

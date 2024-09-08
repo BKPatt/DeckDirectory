@@ -6,11 +6,12 @@ from django.http import JsonResponse
 from django.db.models import FloatField, Value, ExpressionWrapper, F, Func, Count
 from django.db.models.functions import Coalesce
 
+# Custom Django ORM function to extract a numeric value from JSONB data
 class JsonbExtractPathCast(Func):
     function = 'JSONB_EXTRACT_PATH_TEXT'
     template = "(CAST(JSONB_EXTRACT_PATH_TEXT(%(expressions)s) AS NUMERIC))"
     output_field = FloatField()
-    
+
 @api_view(['GET'])
 def get_pokemon_cards_by_list(request, list_id):
     try:
@@ -24,6 +25,7 @@ def get_pokemon_cards_by_list(request, list_id):
         set_filter = request.GET.get('set', '').strip()
         sort_by = request.GET.get('sort', None)
 
+        # Query for fetching cards with combined price from tcgplayer and cardmarket
         cards_query = PokemonCardData.objects.filter(listcard__card_list_id=list_id).annotate(
             tcgplayer_market=Coalesce(
                 JsonbExtractPathCast('tcgplayer__prices', Value('holofoil'), Value('market')),
@@ -45,6 +47,7 @@ def get_pokemon_cards_by_list(request, list_id):
             card_count=Count('id')
         )
 
+        # Filter based on query parameters
         if search_term:
             cards_query = cards_query.filter(name__icontains=search_term)
         if supertype_filter:
@@ -58,6 +61,7 @@ def get_pokemon_cards_by_list(request, list_id):
         if set_filter:
             cards_query = cards_query.filter(set__name=set_filter)
 
+        # Sorting logic
         if sort_by:
             if sort_by == 'name_asc':
                 cards_query = cards_query.order_by('name')
@@ -71,14 +75,12 @@ def get_pokemon_cards_by_list(request, list_id):
             cards_query = cards_query.order_by('set__releaseDate')
 
         paginator = Paginator(cards_query, page_size)
-        print("Paginator created.")
         try:
             current_page = paginator.page(page)
-            print(f"Current Page: {current_page}")
         except EmptyPage:
-            print("EmptyPage exception caught.")
             return Response({'error': 'Page not found'}, status=404)
-        
+
+        # Serialize card data for response
         serialized_data = []
         for card in current_page:
             try:
@@ -153,7 +155,6 @@ def get_pokemon_cards_by_list(request, list_id):
             except Exception as e:
                 print(f"Error serializing card with ID {card['id']}: {e}")
 
-        print("Data serialization complete.")
         return JsonResponse({
             'data': serialized_data,
             'total_pages': paginator.num_pages,
@@ -162,7 +163,7 @@ def get_pokemon_cards_by_list(request, list_id):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-    
+
 @api_view(['GET'])
 def get_filter_options(request):
     try:
@@ -183,7 +184,7 @@ def get_filter_options(request):
         return Response(filter_options)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-    
+
 def pokemon_cards_api(request):
     try:
         page = int(request.GET.get('page', 1))
@@ -234,7 +235,7 @@ def pokemon_cards_api(request):
             cards_query = cards_query.filter(rarity=rarity_filter)
         if set_filter:
             cards_query = cards_query.filter(set__name=set_filter)
-        
+
         if sort_by:
             if sort_by == 'name_asc':
                 cards_query = cards_query.order_by('name')
@@ -251,6 +252,7 @@ def pokemon_cards_api(request):
         except EmptyPage:
             return JsonResponse({'error': 'Page not found'}, status=404)
 
+        # Serialize data for the current page
         serialized_cards = []
         for card in current_page:
             card_dict = {

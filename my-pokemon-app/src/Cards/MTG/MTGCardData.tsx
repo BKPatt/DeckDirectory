@@ -15,9 +15,7 @@ export type MTGCardData = {
         border_crop: string;
     };
     cmc: number;
-    count: number
     type_line: string;
-    card_count: number;
     color_identity: string[];
     keywords: string[];
     legalities: Record<string, string>;
@@ -31,6 +29,9 @@ export type MTGCardData = {
     related_uris: Record<string, string>;
     card_faces?: CardFace[];
     all_parts?: RelatedCard[];
+    count: number;
+    card_count: number;
+    cardIdList: number;
 };
 
 export type RelatedCard = {

@@ -22,8 +22,6 @@ class CardList(models.Model):
     def __str__(self):
         return f'ID: {self.id}, Created by: {self.created_by}, Created on: {self.created_on}, Name: {self.name}, Type: {self.type}, Market Value: {self.market_value}'
 
-
-
 ####################################################
 # Yugioh Tables
 ####################################################
@@ -71,14 +69,13 @@ class CardPrice(models.Model):
     coolstuffinc_price = models.CharField(max_length=100)
 
     def get_average_price(self):
+        # Calculate average price from available prices
         prices = [self.cardmarket_price, self.ebay_price, self.amazon_price]
         prices = [Decimal(price) for price in prices if price]
         return sum(prices) / len(prices) if prices else Decimal('0.00')
 
     def __str__(self):
         return f'CardMarket: {self.cardmarket_price}, TCGPlayer: {self.tcgplayer_price}, eBay: {self.ebay_price}, Amazon: {self.amazon_price}, CoolStuffInc: {self.coolstuffinc_price}'
-
-
 
 ####################################################
 # Pokemon Tables
@@ -176,8 +173,6 @@ class PokemonCardData(models.Model):
                 f'Images: {self.images}, Tcgplayer: {self.tcgplayer.url if self.tcgplayer else None}, '
                 f'Cardmarket: {self.cardmarket.url if self.cardmarket else None}')
 
-
-
 ####################################################
 # Lorcana Tables
 ####################################################
@@ -199,8 +194,6 @@ class LorcanaCardData(models.Model):
 
     def __str__(self):
         return f"Artist: {self.artist}, Set Name: {self.set_name}, Set Num: {self.set_num}, Color: {self.color}, Image: {self.image}, Cost: {self.cost}, Inkable: {self.inkable}, Name: {self.name}, Type: {self.type}, Rarity: {self.rarity}, Flavor Text: {self.flavor_text}, Card Num: {self.card_num}, Body Text: {self.body_text}, Set ID: {self.set_id}"
-    
-
 
 ####################################################
 # MTG Tables
@@ -241,7 +234,7 @@ class MTGCardsData(models.Model):
 
     def __str__(self):
         return f"ID: {self.id}, Oracle ID: {self.oracle_id}, Name: {self.name}, Language: {self.lang}, Released At: {self.released_at}, URI: {self.uri}, Layout: {self.layout}, CMC: {self.cmc}, Type Line: {self.type_line}, Color Identity: {self.color_identity}, Keywords: {self.keywords}, Legalities: {self.legalities}, Games: {self.games}, Set: {self.set}, Set Name: {self.set_name}, Set Type: {self.set_type}, Rarity: {self.rarity}, Artist: {self.artist}, Prices: {self.prices}, Related URIs: {self.related_uris}"
-    
+
 class MTGCardFace(models.Model):
     card = models.ForeignKey(MTGCardsData, on_delete=models.CASCADE, related_name='card_faces')
     id = models.CharField(max_length=100, primary_key=True)
@@ -258,26 +251,26 @@ class MTGCardFace(models.Model):
 
     def __str__(self):
         return f"ID: {self.id}, Oracle ID: {self.oracle_id}, Name: {self.name}, Mana Cost: {self.mana_cost}, Type Line: {self.type_line}, Oracle Text: {self.oracle_text}, Colors: {self.colors}, Power: {self.power}, Toughness: {self.toughness}, Artist: {self.artist}"
-    
-
 
 ####################################################
 # Setup for many-to-many tables with lists and cards
 ####################################################
 class ListCard(models.Model):
-    card_list = models.ForeignKey(CardList, on_delete=models.CASCADE, related_name='list_cards')
-    pokemon_card = models.ForeignKey(PokemonCardData, on_delete=models.SET_NULL, null=True, blank=True)
-    yugioh_card = models.ForeignKey(YugiohCard, on_delete=models.SET_NULL, null=True, blank=True)
-    mtg_card = models.ForeignKey(MTGCardsData, on_delete=models.SET_NULL, null=True, blank=True)
-    lorcana_card = models.ForeignKey(LorcanaCardData, on_delete=models.SET_NULL, null=True, blank=True)
+    card_list = models.ForeignKey('CardList', on_delete=models.CASCADE, related_name='list_cards')
+    pokemon_card = models.ForeignKey('PokemonCardData', on_delete=models.SET_NULL, null=True, blank=True)
+    yugioh_card = models.ForeignKey('YugiohCard', on_delete=models.SET_NULL, null=True, blank=True)
+    mtg_card = models.ForeignKey('MTGCardsData', on_delete=models.SET_NULL, null=True, blank=True)
+    lorcana_card = models.ForeignKey('LorcanaCardData', on_delete=models.SET_NULL, null=True, blank=True)
     market_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     collected = models.BooleanField(default=False)
+    card_type = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
-        return f"Card List: {self.card_list}, Pokemon Card: {self.pokemon_card}, Yugioh Card: {self.yugioh_card}, MTG Card: {self.mtg_card}, Lorcana Card: {self.lorcana_card}, Market Value: {self.market_value}, Collected: {self.collected}"
-
+        return f"Card in {self.card_list} - Collected: {self.collected}"
+    
     @property
     def card_market_value(self):
+        # Return the market value from the relevant card data if available
         if self.pokemon_card and self.pokemon_card.cardmarket:
             price = self.pokemon_card.cardmarket.prices.get('averageSellPrice')
             return Decimal(price) if price is not None else Decimal('0.00')
@@ -285,12 +278,14 @@ class ListCard(models.Model):
 
     @property
     def card_instance(self):
+        # Return the relevant card instance (Pokemon, Yugioh, MTG, or Lorcana)
         return self.pokemon_card or self.yugioh_card or self.mtg_card or self.lorcana_card
 
     def save(self, *args, **kwargs):
         self.market_value = self.card_market_value or Decimal('0.00')
         super().save(*args, **kwargs)
 
+# Many-to-many relationship setup for CardList with different card types
 CardList.cards = models.ManyToManyField('app_name.PokemonCardData', through='app_name.ListCard', related_name='card_lists')
 CardList.yugioh_cards = models.ManyToManyField('app_name.YugiohCard', through='app_name.ListCard', related_name='yugioh_card_lists')
 CardList.mtg_cards = models.ManyToManyField('app_name.MTGCardsData', through='app_name.ListCard', related_name='mtg_card_lists')

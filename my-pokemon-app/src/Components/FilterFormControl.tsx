@@ -4,6 +4,7 @@ import FormControl from '@mui/material/FormControl';
 import Autocomplete from '@mui/material/Autocomplete';
 import { OptionType } from '../Types/Options';
 
+// Define the props interface for the FilterFormControl component
 interface FilterFormControlProps {
     id: string;
     label: string;
@@ -28,6 +29,7 @@ const FilterFormControl: React.FC<FilterFormControlProps> = ({
                 value={selectedFilter}
                 onChange={(_event, newValue: OptionType | null) => setSelectedFilter(newValue)}
                 sx={{ width: 200 }}
+                // Custom comparison function for option equality
                 isOptionEqualToValue={(option, value) => option === value}
                 renderInput={(params) => <TextField {...params} label={label} />}
             />

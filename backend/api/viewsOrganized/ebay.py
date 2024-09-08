@@ -3,6 +3,7 @@ from pathlib import Path
 import requests
 from django.http import JsonResponse
 
+# Load environment variables from .env file
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env_file = BASE_DIR / '.env'
 config = Config(RepositoryEnv(env_file))
@@ -10,6 +11,7 @@ config = Config(RepositoryEnv(env_file))
 def fetch_ebay_data(request):
     try:
         search_term = request.GET.get('searchTerm', 'default search term')
+
         url = "https://svcs.sandbox.ebay.com/services/search/FindingService/v1"
         params = {
             'OPERATION-NAME': 'findItemsByKeywords',
@@ -19,6 +21,8 @@ def fetch_ebay_data(request):
             'REST-PAYLOAD': '',
             'keywords': search_term
         }
+
+        # Make the request to eBay's FindingService API
         response = requests.get(url, params=params)
         response.raise_for_status()
         return JsonResponse(response.json())

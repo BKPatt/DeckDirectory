@@ -13,6 +13,7 @@ import psychicEnergy from '../../assets/energies/psychicEnergy.png';
 import waterEnergy from '../../assets/energies/waterEnergy.png';
 import AddCard from '../../Components/AddCard';
 
+// Define prop types for the CardInfo component
 type CardInfoProps = {
     card: CardData;
     selectedCardListId?: string;
@@ -23,6 +24,7 @@ type CardInfoProps = {
     cardQuantity: number;
 };
 
+// Define a type for the energy images object
 type EnergyImages = {
     [key: string]: string;
 };
@@ -39,6 +41,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
     const [selectedTab, setSelectedTab] = useState(0);
     const isPokemonCard = card.supertype === "Pokémon";
 
+    // Map energy types to their corresponding image files
     const energyImages: EnergyImages = {
         Colorless: colorlessEnergy,
         Darkness: darknessEnergy,
@@ -52,11 +55,13 @@ const CardInfo: React.FC<CardInfoProps> = ({
         Water: waterEnergy,
     };
 
+    // Helper function to get the correct energy image
     const getEnergyImage = (energyType: string) => {
         const formattedEnergyType = energyType.charAt(0).toUpperCase() + energyType.slice(1).toLowerCase();
         return energyImages[formattedEnergyType] || '';
     };
 
+    // Render a property with a label and value
     const renderProperty = (label: string, value: string | JSX.Element) => (
         <Box sx={{ textAlign: 'center' }}>
             <Typography variant="caption" color="textSecondary" sx={{ display: 'block', marginBottom: '5px' }}>
@@ -66,11 +71,13 @@ const CardInfo: React.FC<CardInfoProps> = ({
         </Box>
     );
 
+    // Format card numbers to have leading zeros
     const formatNumber = (number: string, total: number) => {
         const totalLength = `${total}`.length;
         return `${number}`.padStart(totalLength, '0');
     };
 
+    // Render CardMarket normal price information
     const renderCardMarketNormalPrice = () => {
         const priceData = card.cardmarket?.prices;
 
@@ -87,6 +94,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
         return null;
     };
 
+    // Render CardMarket reverse holo price information
     const renderCardMarketReverseHoloPrice = () => {
         const priceData = card.cardmarket?.prices;
 
@@ -103,6 +111,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
         return null;
     };
 
+    // Render TCGPlayer price information for a specific price type
     const renderTcgplayerPrice = (priceType: 'normal' | 'holofoil') => {
         const priceData = card.tcgplayer?.prices[priceType];
 
@@ -124,6 +133,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
         setSelectedTab(newValue);
     };
 
+    // Render the Details tab content
     const renderDetails = () => {
         return (
             <Box>
@@ -161,6 +171,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
         );
     };
 
+    // Render the Attacks tab content for Pokemon cards
     const renderAttacks = () => {
         return (
             <Box>
@@ -194,6 +205,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
         );
     };
 
+    // Render the Prices tab content
     const renderPrices = () => {
         return (
             <Box>
@@ -214,6 +226,7 @@ const CardInfo: React.FC<CardInfoProps> = ({
         );
     };
 
+    // Configure tabs based on card type
     const tabConfig = isPokemonCard
         ? [
             { label: "Details", content: renderDetails() },

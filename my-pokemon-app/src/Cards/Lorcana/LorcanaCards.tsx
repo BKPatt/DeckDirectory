@@ -26,21 +26,29 @@ type LorcanaCardsProps = {
 };
 
 const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => void }> = ({ selectedListId, isInAddMode, onListQuantityChange }) => {
+    // State to manage the Lorcana cards, pagination, filters, and card quantities
     const [cards, setCards] = useState<LorcanaCardData[]>([]);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [cardsPerPage] = useState(20);
+    const [cardsPerPage] = useState(20); // Default number of cards per page
     const [showData, setShowData] = useState(false);
     const [selectedCard, setSelectedCard] = useState<LorcanaCardData | null>(null);
     const [totalPages, setTotalPages] = useState(0);
     const [cardQuantities, setCardQuantities] = useState<{ [key: string]: number }>({});
-    const [sortOption, setSortOption] = useState<SortOptionType>(null); const sortOptions = [
+    const [sortOption, setSortOption] = useState<SortOptionType>(null);
+
+    // Sorting options for the card list
+    const sortOptions = [
         { label: 'Name Ascending', value: 'name_asc' },
         { label: 'Name Descending', value: 'name_desc' },
         { label: 'Price Ascending', value: 'price_asc' },
         { label: 'Price Descending', value: 'price_desc' },
     ];
+
+    // Custom hook for managing card lists
     const { listData, updateListData } = useList();
+
+    // Filter options for color, rarity, and set name
     const [filterOptions, setFilterOptions] = useState<{
         color: OptionType[];
         rarity: OptionType[];
@@ -50,6 +58,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         rarity: [],
         set_name: [],
     });
+
     const [colorFilter, setColorFilter] = useState<OptionType | null>(null);
     const [inkableFilter, setInkableFilter] = useState<OptionType | null>(null);
     const [rarityFilter, setRarityFilter] = useState<OptionType | null>(null);
@@ -57,6 +66,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
     const [collectedStatus, setCollectedStatus] = useState<{ [key: string]: boolean }>({});
     const [collectedQuantities, setCollectedQuantities] = useState<{ [key: string]: number }>({});
 
+    // Fetches Lorcana card data with filters, pagination, and sorting
     const fetchData = async (page: number = 1, filters = {}) => {
         try {
             const params = {
@@ -71,9 +81,11 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
                 }
             };
 
+            // API endpoint depends on whether the app is in add mode or displaying a card list
             let url = isInAddMode == null ? `http://localhost:8000/api/lorcana-cards/`
                 : !isInAddMode ? `http://localhost:8000/api/lorcana-cards-by-list/${selectedListId}/`
                     : `http://localhost:8000/api/lorcana-cards/`;
+
             const response = await axios.get(url, params);
 
             if (response.data && Array.isArray(response.data.data)) {
@@ -84,6 +96,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
                     quantities[card.id] = card.card_count;
                 });
 
+                // Map the fetched card data into a format usable by the component
                 setCards(response.data.data.map((card: any) => ({
                     id: card.id,
                     Artist: card.artist,
@@ -102,9 +115,12 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
                     Set_ID: card.set_id,
                     card_count: card.card_count,
                 })));
+
+                // Update total number of pages for pagination
                 setTotalPages(response.data.total_pages);
 
                 if (isInAddMode) {
+                    // Fetch quantities if in add mode
                     const quantitiesUrl = `http://localhost:8000/api/lorcana-cards-by-list/${selectedListId}/`;
                     const quantitiesResponse = await axios.get(quantitiesUrl);
                     quantitiesResponse.data.data.forEach((card: any) => {
@@ -116,6 +132,8 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
             } else {
                 console.error('Unexpected response format');
             }
+
+            // Update the current page number
             setCurrentPage(page);
         } catch (error) {
             console.error('Error fetching data: ', error);
@@ -123,11 +141,13 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
     };
 
     useEffect(() => {
+        // Fetch data and handle list updates when the selected list changes
         fetchData();
         handleListUpdate();
     }, [selectedListId]);
 
     useEffect(() => {
+        // Fetch available filter options for color, rarity, and set name
         const fetchFilterOptions = async () => {
             try {
                 const response = await axios.get('http://localhost:8000/api/lorcana-filter-options/');
@@ -140,10 +160,12 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         fetchFilterOptions();
     }, []);
 
+    // Handle the update of card quantities in the list
     const handleCardQuantityChange = async () => {
         onListQuantityChange?.();
     };
 
+    // Fetch and update the list when data changes
     const handleListUpdate = async () => {
         await fetchCardListData();
         const updatedList = await fetchListData();
@@ -160,6 +182,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Fetch specific list data by ID
     const fetchListData = async (): Promise<CardList | null> => {
         if (!selectedListId) return null;
         const getListByIdUrl = `http://localhost:8000/api/get-list-by-id/${selectedListId}/`;
@@ -170,8 +193,9 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
             console.error(`Error fetching updated list data:`, error);
             return null;
         }
-    }
+    };
 
+    // Updates the quantity of a specific card by making a POST request to the API
     const updateCardQuantity = async (cardId: string, operation: 'increment' | 'decrement') => {
         const url = `http://localhost:8000/api/update-card-quantity/`;
 
@@ -188,6 +212,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Increment the quantity of a card in the list and update the UI and backend
     const incrementCardQuantity = async (card: LorcanaCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
@@ -198,6 +223,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         await handleCardQuantityChange();
     };
 
+    // Decrement the quantity of a card in the list and update the UI and backend
     const decrementCardQuantity = async (card: LorcanaCardData) => {
         setCardQuantities(prevQuantities => {
             if (prevQuantities[card.id] > 1) {
@@ -210,6 +236,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         await handleCardQuantityChange();
     };
 
+    // Handle the deletion of a card from the list
     const handleDeleteCard = async (card: LorcanaCardData) => {
         deleteCardFromList(card.id.toString()).then(() => {
             fetchData(currentPage);
@@ -218,6 +245,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         await handleCardQuantityChange();
     };
 
+    // Fetch data for the card list
     const fetchCardListData = async (): Promise<void> => {
         if (!selectedListId) return;
 
@@ -257,6 +285,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Functions to increment or decrement the quantity of collected cards
     const handleIncrementCollectedQuantity = async (cardId: string) => {
         if (collectedQuantities[cardId] < cardQuantities[cardId]) {
             const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
@@ -303,6 +332,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Toggle the collected status of a card in the list
     const handleCheckboxChange = async (cardId: string, isChecked: boolean) => {
         const newCollectedStatus = { ...collectedStatus, [cardId]: isChecked };
         setCollectedStatus(newCollectedStatus);
@@ -336,6 +366,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Handle deleting a card from the list
     const deleteCardFromList = async (cardId: string) => {
         const url = `http://localhost:8000/api/delete-card-from-list/`;
         try {
@@ -356,6 +387,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Add a card to the list and update the backend
     const handleAddCard = async (card: LorcanaCardData) => {
         setCardQuantities(prevQuantities => ({
             ...prevQuantities,
@@ -378,6 +410,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         }
     };
 
+    // Handle the search action, applying filters and resetting pagination
     const handleSearchClick = () => {
         setCurrentPage(1);
         fetchData(1, {
@@ -388,6 +421,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         });
     };
 
+    // Paginate to a specific page
     const paginate = (value: number) => {
         setCurrentPage(value);
         fetchData(value, {
@@ -398,6 +432,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         });
     };
 
+    // Clear all filters and reset the search and pagination
     const handleClearFilters = () => {
         setSearch('');
         setColorFilter(null);
@@ -409,16 +444,19 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
         fetchData(1);
     };
 
+    // Show detailed information for the selected card
     const handleCardInfo = (card: LorcanaCardData) => {
         setSelectedCard(card);
         setShowData(true);
     };
 
+    // Close the card details dialog
     const handleCloseDialog = () => {
         setShowData(false);
         setSelectedCard(null);
     };
 
+    // Card information dialog to display card details
     const cardInfo = selectedCard && (
         <Dialog
             open={showData}
@@ -456,6 +494,7 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
                 onChange={(e) => setSearch(e.target.value)}
                 sx={{ mb: 2 }}
             />
+            {/* Filters for color, rarity, and set */}
             <FilterFormControl
                 id="color-filter"
                 label="Color"
@@ -490,7 +529,8 @@ const LorcanaCards: React.FC<LorcanaCardsProps & { onListQuantityChange?: () => 
                 />
             </FormControl>
             <Button sx={{ margin: '5px', width: 100, height: '55px' }} variant="contained" onClick={handleSearchClick}>Search</Button>
-            <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>            <Grid container spacing={2}>
+            <Button sx={{ margin: '5px', width: 150, height: '55px' }} variant="contained" onClick={handleClearFilters}>Clear Filters</Button>
+            <Grid container spacing={2}>
                 {cards.map((card) => (
                     <CardDisplay
                         key={card.id}

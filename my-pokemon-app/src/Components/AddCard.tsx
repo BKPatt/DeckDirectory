@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
 
+// Define prop types for the AddCard component
 type addCardsProps = {
     selectedCardListId?: string;
     cardQuantity: number;
@@ -22,6 +23,7 @@ const AddCard: React.FC<addCardsProps> = ({
 }) => {
 
     return (
+        // Only render if a card list is selected
         selectedCardListId && (
             <Box
                 sx={{
@@ -42,12 +44,15 @@ const AddCard: React.FC<addCardsProps> = ({
                         maxWidth: '300px'
                     }}
                 >
+                    {/* Decrement button */}
                     <Button
                         onClick={() => {
                             if (cardQuantity === 1) {
+                                // If only one card left, delete it and close the dialog
                                 deleteCard(card);
                                 close();
                             } else {
+                                // Otherwise, just decrement the quantity
                                 decrementCardQuantity(card);
                             }
                         }}
@@ -64,7 +69,9 @@ const AddCard: React.FC<addCardsProps> = ({
                     >
                         -
                     </Button>
+                    {/* Display current quantity */}
                     <Typography sx={{ flexGrow: 1, textAlign: 'center' }}>{cardQuantity}</Typography>
+                    {/* Increment button */}
                     <Button
                         onClick={() => incrementCardQuantity(card)}
                         sx={{

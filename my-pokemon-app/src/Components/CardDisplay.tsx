@@ -9,6 +9,7 @@ import {
     Checkbox,
 } from '@mui/material';
 
+// Define props interface for the CardDisplay component
 interface CardDisplayProps {
     card: any;
     onInfoClick: (card: any) => void;
@@ -48,11 +49,13 @@ const CardDisplay: React.FC<CardDisplayProps> = memo(({
     id,
     collectedQuantities,
 }) => {
+    // Determine if the card is collected
     const isCollected = collectedQuantities[id] > 0;
 
     return (
         <Grid item xs={12} sm={6} md={4} lg={3}>
             <Card>
+                {/* Display card name if it's in a selected list and not in add mode */}
                 {isSelectedListId && !isInAddMode && (
                     <Typography variant="h6" component="div" sx={{ textAlign: 'center', mt: 1 }}>
                         {name}
@@ -66,6 +69,7 @@ const CardDisplay: React.FC<CardDisplayProps> = memo(({
                             image={image}
                             alt={name}
                         />
+                        {/* Overlay with action buttons */}
                         <Box
                             className="cardActions"
                             sx={{
@@ -87,6 +91,7 @@ const CardDisplay: React.FC<CardDisplayProps> = memo(({
                                     <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                                         {(cardQuantities[id] > 0) ? (
                                             <Box sx={{ display: 'flex' }}>
+                                                {/* Show delete button if quantity is 1, otherwise show decrement button */}
                                                 {cardQuantities[id] === 1 ? (
                                                     <Button
                                                         variant="contained"
@@ -159,11 +164,13 @@ const CardDisplay: React.FC<CardDisplayProps> = memo(({
                         </Box>
                     </Box>
                 </Box>
+                {/* Display card name if it's not in a selected list or in add mode */}
                 {!(isSelectedListId && !isInAddMode) && (
                     <Typography variant="h6" component="div" sx={{ textAlign: 'center', mt: 1 }}>
                         {name}
                     </Typography>
                 )}
+                {/* Display collected status and quantity controls */}
                 {isSelectedListId && !isInAddMode && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1 }}>
                         <Checkbox
