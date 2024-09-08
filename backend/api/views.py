@@ -152,8 +152,23 @@ class CardListViewSet(viewsets.ModelViewSet):
         queryset = CardList.objects.all()
         card_type = self.request.query_params.get('type', None)
 
-        if card_type:
-            queryset = queryset.filter(type=card_type)
+        if card_type is not None:
+            if card_type.lower() == 'pokemon':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'yu-gi-oh!':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'mtg':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'lorcana':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'baseball':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'football':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'basketball':
+                queryset = queryset.filter(type=card_type)
+            elif card_type.lower() == 'hockey':
+                queryset = queryset.filter(type=card_type)
 
         # Sorting by market value or number of cards in the list
         sort_field = self.request.query_params.get('sort_field', 'created_on')
