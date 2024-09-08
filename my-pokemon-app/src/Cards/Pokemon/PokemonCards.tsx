@@ -309,6 +309,7 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 setCollectedQuantities(collectedQuantities);
                 console.error("Error in handleIncrementCollectedQuantity: ", error);
             });
+            onListQuantityChange?.();
         }
     };
 
@@ -331,38 +332,50 @@ const PokemonCards: React.FC<CardProps & { onListQuantityChange?: () => void }> 
                 setCollectedQuantities(collectedQuantities);
                 console.error("Error in handleDecrementCollectedQuantity: ", error);
             });
+            onListQuantityChange?.();
         }
     };
 
     // Handle checkbox change for card collection status
     const handleCheckboxChange = async (cardId: string, isChecked: boolean) => {
         try {
-            const response = await axios.get(`http://localhost:8000/api/card-collected-status/?list_id=${selectedListId}&card_id=${cardId}&card_type=pokemon`);
-            const isCollectedInBackend = response.data.collected;
+            const url = 'http://localhost:8000/api/set-card-quantity/';
 
-            if (isCollectedInBackend === isChecked) {
-                return;
-            }
-
+            // Update the local state immediately to reflect the change in the UI
             setCollectedStatus((prevState) => ({
                 ...prevState,
-                [cardId]: isCollectedInBackend,
-            }));
-            setCollectedQuantities((prevQuantities) => ({
-                ...prevQuantities,
-                [cardId]: isCollectedInBackend ? 1 : 0,
+                [cardId]: isChecked,
             }));
 
-            await axios.post('http://localhost:8000/api/set-card-quantity/', {
+            setCollectedQuantities((prevQuantities) => ({
+                ...prevQuantities,
+                [cardId]: isChecked ? 1 : 0, // Set quantity to 1 if checked, 0 if unchecked
+            }));
+
+            // Call the API to update the collection status and quantity
+            await axios.post(url, {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'pokemon',
                 collected: isChecked,
-                quantity: isChecked ? 1 : 0,
+                quantity: isChecked ? 1 : 0, // Quantity is 1 if collected, 0 if not
             });
+
+            onListQuantityChange?.();
+
+            // Fetch updated list data to ensure consistency
             await fetchCardListData();
         } catch (error) {
             console.error('Error in handleCheckboxChange:', error);
+            // Revert the UI state in case of an error
+            setCollectedStatus((prevState) => ({
+                ...prevState,
+                [cardId]: !isChecked,
+            }));
+            setCollectedQuantities((prevQuantities) => ({
+                ...prevQuantities,
+                [cardId]: isChecked ? 0 : 1,
+            }));
         }
     };
 
