@@ -1,25 +1,98 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# React / Node.js dependencies
 /my-pokemon-app/node_modules
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-
-# production
+# Build artifacts
 /build
+/dist
+/public/static
 
-# misc
-.DS_Store
-/my-pokemon-app/.env
-/backend/.env
+# Environment variables
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
+
+# Editor-specific directories and files
+.DS_Store
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python/Django specific
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+*.pot
+db.sqlite3
+media/
+
+# Virtual environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.Python
+
+# Python packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.manifest
+*.spec
+*.egg
+.installed.cfg
+wheels/
+
+# Django-specific
+staticfiles/
+*.pot
+*.mo
+
+# Pytest cache
+.pytest_cache/
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# celery
+celerybeat-schedule.*
+
+# JIRA plugin
+atlassian-ide-plugin.xml
+
+# Backup files
+*.bak
+
+# Miscellaneous
+sftp-config.json
