@@ -2,7 +2,7 @@
 
 REM Start Django server
 cd "backend"
-start cmd /k "C:\Users\BrantleysPC\AppData\Local\Programs\Python\Python311\python.exe" "c:\Users\BrantleysPC\Desktop\1) Productive\Pokemon\backend\manage.py" runserver
+start cmd /k python manage.py runserver
 
 REM Start Celery worker
 start cmd /k celery -A backend worker --loglevel=debug
