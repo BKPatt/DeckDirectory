@@ -294,41 +294,47 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
         }
     };
 
-    // Function to handle checkbox change for collected status
+    // Handle checkbox change for card collection status
     const handleCheckboxChange = async (cardId: string, isChecked: boolean) => {
-        const newCollectedStatus = { ...collectedStatus, [cardId]: isChecked };
-        setCollectedStatus(newCollectedStatus);
+        try {
+            // Update the local state immediately to reflect the change in the UI
+            setCollectedStatus((prevState) => ({
+                ...prevState,
+                [cardId]: isChecked,
+            }));
 
-        if (isChecked) {
-            await axios.post('http://localhost:8000/api/card-collection/', {
+            setCollectedQuantities((prevQuantities) => ({
+                ...prevQuantities,
+                [cardId]: isChecked ? 1 : 0, // Set quantity to 1 if checked, 0 if unchecked
+            }));
+
+            const url = 'http://localhost:8000/api/set-card-quantity/';
+
+            // Call the API to update the collection status and quantity
+            await axios.post(url, {
                 list_id: selectedListId,
                 card_id: cardId,
                 card_type: 'mtg',
-                operation: 'add',
-            }).then(async () => {
-                const newQuantities = { ...collectedQuantities, [cardId]: collectedQuantities[cardId] + 1 };
-                setCollectedQuantities(newQuantities);
-                await fetchCardListData();
-            }).catch(error => {
-                setCollectedStatus(collectedStatus);
-                console.error("Error in handleCheckboxChange: ", error)
+                collected: isChecked,
+                quantity: isChecked ? 1 : 0, // Set quantity to 1 if collected, 0 if not
             });
-        } else {
-            await axios.post('http://localhost:8000/api/set-card-quantity/', {
-                list_id: selectedListId,
-                card_id: cardId,
-                card_type: 'mtg',
-                collected: false,
-            }).then(async () => {
-                const newQuantities = { ...collectedQuantities, [cardId]: 0 };
-                setCollectedQuantities(newQuantities);
-                await fetchCardListData();
-            }).catch(error => {
-                setCollectedStatus(collectedStatus);
-                console.error("Error in handleCheckboxChange: ", error)
-            });
+
+            // Fetch updated list data to ensure consistency
+            await fetchCardListData();
+        } catch (error) {
+            console.error('Error in handleCheckboxChange:', error);
+            // Revert the UI state in case of an error
+            setCollectedStatus((prevState) => ({
+                ...prevState,
+                [cardId]: !isChecked,
+            }));
+            setCollectedQuantities((prevQuantities) => ({
+                ...prevQuantities,
+                [cardId]: isChecked ? 0 : 1,
+            }));
         }
     };
+
 
     // Function to delete a card from the list on the server
     const deleteCardFromList = async (cardId: string) => {

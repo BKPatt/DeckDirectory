@@ -36,6 +36,7 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
     const [currentList, setCurrentList] = useState<CardList | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
+    const [collectionValue, setCollectionValue] = useState(0);
     const { updateListInDatabase } = useList();
 
     // Initialize the dialog with the provided list
@@ -57,14 +58,12 @@ const ListDialog: React.FC<ListDialogProps> = ({ list, onClose }) => {
                     const listCards = response.data.list_cards;
 
                     // Calculate the collection value based on collected cards
-                    const collectionValue = listCards.reduce((total, listCard) => {
-                        if (listCard.collected) {
-                            return total + listCard.market_value;
-                        }
-                        return total;
+                    const newCollectionValue = listCards.reduce((total, card) => {
+                        return card.collected ? total + card.market_value : total;
                     }, 0);
 
-                    setCurrentList({ ...updatedList, collection_value: collectionValue });
+                    setCurrentList(updatedList);
+                    setCollectionValue(newCollectionValue);
                 }
             } catch (error) {
                 console.error('Error fetching updated list:', error);

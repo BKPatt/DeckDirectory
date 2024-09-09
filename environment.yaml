@@ -1,0 +1,16 @@
+name: card-tracker
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - django=3.2
+  - djangorestframework=3.12
+  - django-filter=21.1
+  - django-cors-headers=3.7
+  - psycopg2=2.9
+  - celery=5.1
+  - requests=2.25
+  - python-decouple=3.4
+  - pip
+  - pip:
+    - django-decouple==2.1

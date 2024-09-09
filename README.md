@@ -40,8 +40,8 @@ The project is divided into two main parts:
 
 ### Prerequisites
 
+- Anaconda
 - Node.js (v14 or later)
-- Python (v3.8 or later)
 - PostgreSQL
 
 ### Backend Setup
@@ -51,31 +51,29 @@ The project is divided into two main parts:
    cd backend
    ```
 
-2. Create a virtual environment:
+2. Create a new Anaconda environment using the provided environment.yml file:
    ```
-   python -m venv venv
-   ```
-
-3. Activate the virtual environment:
-   - On Windows: `venv\Scripts\activate`
-   - On macOS and Linux: `source venv/bin/activate`
-
-4. Install the required Python packages:
-   ```
-   pip install -r requirements.txt
+   conda env create -f environment.yml
    ```
 
-5. Set up the database:
+   This command will create a new Anaconda environment named "card-tracker" with the required Python dependencies.
+
+3. Activate the Anaconda environment:
+   ```
+   conda activate card-tracker
+   ```
+
+4. Set up the database:
    ```
    python manage.py migrate
    ```
 
-6. Create a superuser:
+5. Create a superuser:
    ```
    python manage.py createsuperuser
    ```
 
-7. Start the Django development server:
+6. Start the Django development server:
    ```
    python manage.py runserver
    ```
