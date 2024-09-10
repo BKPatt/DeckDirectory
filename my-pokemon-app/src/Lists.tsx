@@ -189,6 +189,7 @@ const Lists = () => {
                 .then(() => {
                     updateListData(listData.filter(list => list.id !== listToDelete.id));
                     setDeleteDialogOpen(false);
+                    fetchAllLists()
                     setListToDelete(null);
                 })
                 .catch(error => {
