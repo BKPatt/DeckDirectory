@@ -161,7 +161,6 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 card_type: 'mtg',
                 operation
             });
-            console.log(`Card quantity ${operation}ed successfully`);
         } catch (error) {
             console.error(`Error in ${operation}ing card quantity:`, error);
         }
@@ -229,7 +228,6 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
 
             listCards.forEach((listCard: any) => {
                 const cardId = listCard.card_id;
-                console.log(cardId)
                 if (!cardId) return;
 
                 if (!newCollectedQuantities[cardId]) newCollectedQuantities[cardId] = 0;
@@ -348,7 +346,6 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                 }
             });
             if (response.status === 200) {
-                console.log('Card deleted from list successfully');
                 return true;
             }
         } catch (error) {
@@ -370,10 +367,6 @@ const MTGCards: React.FC<CardProps & { onListQuantityChange?: () => void }> = ({
                     card_id: card.id,
                     card_type: 'mtg'
                 });
-
-                if (response.status === 200) {
-                    console.log('Card added to list successfully');
-                }
             } catch (error) {
                 console.error('Error adding card to list:', error);
             }
